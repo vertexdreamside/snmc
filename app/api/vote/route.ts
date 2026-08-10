@@ -32,7 +32,7 @@ export async function POST(request: Request) {
 
   const { data: person } = await supabase
     .from("people")
-    .select("id, professional_category, registration_status, nurse_license_expiry, midwife_license_expiry")
+    .select("id, professional_category, registration_status, category_confirmed, nurse_license_expiry, midwife_license_expiry")
     .eq("auth_user_id", user.id)
     .single();
 
@@ -45,6 +45,12 @@ export async function POST(request: Request) {
   // default (Practising only) until the Council confirms otherwise.
   if (person.registration_status !== "Practising") {
     return NextResponse.json({ ok: false, reason: "You're not currently eligible to vote." }, { status: 403 });
+  }
+  if (!person.category_confirmed) {
+    return NextResponse.json(
+      { ok: false, reason: "Your Nurse/Midwife category hasn't been confirmed by the Council yet. Please contact the Council office." },
+      { status: 403 }
+    );
   }
   const canVoteCategory =
     person.professional_category === "Both" || person.professional_category === category;
