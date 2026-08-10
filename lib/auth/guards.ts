@@ -2,6 +2,32 @@
 // allowed in this portal." Each portal layout calls the matching guard and
 // redirects on failure. Keeping this in one file makes the three-portal
 // boundary auditable in one place rather than scattered across pages.
+//
+// ADMIN ROLE PERMISSIONS (as currently wired into route handlers via
+// requireAdmin([...])) — this mapping is a reasonable starting default,
+// NOT something the Council has confirmed. Revisit once they specify real
+// requirements for Minister/Supervisor/Manager, the three roles added in
+// migration 0005 beyond the original four:
+//
+//   Super Admin         — everything, including managing admin accounts
+//                          (/admin/users, Super Admin only).
+//   Manager              — registration approval/edit AND election
+//                          management (Registration Officer + Election
+//                          Officer combined), not admin-account management.
+//   Supervisor            — registration approval/edit only (same scope as
+//                          Registration Officer), no election access.
+//   Registration Officer  — approve/reject profiles, edit fields, mark
+//                          deceased, bulk-confirm categories.
+//   Election Officer      — create/manage elections, shortlist candidates,
+//                          advance rounds, publish results.
+//   Minister              — no elevated write access currently; same as
+//                          Read Only (dashboard + reports). The 2004
+//                          Regulations give the Minister a real appointment
+//                          role for 2 Nurse + 1 Midwife Council seats, but
+//                          that's a decision made outside this system, not
+//                          a platform permission — flagged here rather than
+//                          guessed at.
+//   Read Only              — dashboard + reports only, no writes anywhere.
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
