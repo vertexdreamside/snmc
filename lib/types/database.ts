@@ -14,7 +14,14 @@ export type RegistrationStatus =
 export type ProfessionalCategory = "Nurse" | "Midwife" | "Both";
 export type ProfileStatus = "Approved" | "Pending Review" | "Rejected";
 export type ServiceCategory = "Hospital" | "Community" | "Private" | "Unspecified";
-export type AdminRole = "Super Admin" | "Registration Officer" | "Election Officer" | "Read Only";
+export type AdminRole =
+  | "Super Admin"
+  | "Registration Officer"
+  | "Election Officer"
+  | "Read Only"
+  | "Minister"
+  | "Supervisor"
+  | "Manager";
 export type ElectionStatus =
   | "Planned"
   | "Round 1 Open"
@@ -53,6 +60,7 @@ export interface Person {
   midwife_license_renewed: string | null;
   registration_status: RegistrationStatus;
   is_active: boolean;
+  category_confirmed: boolean;
   profile_status: ProfileStatus;
   data_source: string | null;
   notes: string | null;
