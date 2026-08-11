@@ -1,24 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 
 // Completes the login flow started in lib/auth/identify.ts. Supabase's
 // magic-link verification redirects here with the session token in the
-// URL fragment (#access_token=...) rather than a server-visible query
-// param — fragments never reach the server, so this has to be a Client
-// Component that reads window.location.hash directly and calls
-// setSession() itself. That call is what actually establishes the
-// cookie-based session lib/auth/guards.ts checks on every subsequent
-// page load; without it, the token just sits unused in the URL and the
-// person ends up bounced straight back to the login page.
+// URL fragment (#access_token=...) — fragments never reach the server,
+// so this page reads it client-side, then POSTs it to
+// /api/auth/set-session, which establishes the session server-side using
+// the same cookie-writing path middleware already reliably reads. An
+// earlier version of this page called setSession() directly on the
+// browser Supabase client, which writes via document.cookie — that did
+// not reliably end up visible to the server-side cookie reading, so the
+// person would be signed in from the browser's own point of view but
+// bounced straight back to login on the very next page load. Routing the
+// actual session-establishment through our own server route closes that
+// gap.
 export default function AuthCallbackPage() {
-  const [debugLines, setDebugLines] = useState<string[]>(["Starting…"]);
-  const [status, setStatus] = useState<"working" | "error" | "debug">("working");
-
-  function log(line: string) {
-    setDebugLines((prev) => [...prev, line]);
-  }
+  const [status, setStatus] = useState<"working" | "error">("working");
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
 
   useEffect(() => {
     async function completeLogin() {
@@ -27,36 +26,28 @@ export default function AuthCallbackPage() {
       const access_token = params.get("access_token");
       const refresh_token = params.get("refresh_token");
 
-      log(`Fragment present: ${window.location.hash.length > 0}`);
-      log(`access_token found: ${!!access_token} (length ${access_token?.length ?? 0})`);
-      log(`refresh_token found: ${!!refresh_token} (length ${refresh_token?.length ?? 0})`);
-
       if (!access_token || !refresh_token) {
-        log("STOPPING: no token in URL fragment.");
-        setStatus("debug");
+        setErrorDetail("No session token found in the link.");
+        setStatus("error");
         return;
       }
 
-      const supabase = createClient();
-      const { data: setData, error } = await supabase.auth.setSession({ access_token, refresh_token });
+      const res = await fetch("/api/auth/set-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ access_token, refresh_token }),
+      });
+      const data = await res.json();
 
-      log(`setSession error: ${error ? error.message : "none"}`);
-      log(`setSession returned user id: ${setData?.user?.id ?? "none"}`);
-
-      if (error) {
-        log("STOPPING: setSession failed.");
-        setStatus("debug");
+      if (!data.ok) {
+        setErrorDetail(data.reason ?? "Could not establish session.");
+        setStatus("error");
         return;
       }
 
-      // Confirm the session is actually retrievable right after setting it.
-      const { data: checkData } = await supabase.auth.getSession();
-      log(`getSession() right after: ${checkData.session ? "session found" : "NO SESSION FOUND"}`);
-      log(`Cookies visible to JS right now: ${document.cookie.split(";").filter((c) => c.trim().startsWith("sb-")).map((c) => c.trim().split("=")[0]).join(", ") || "none starting with sb-"}`);
-
-      setStatus("debug");
-      // TEMPORARY: not auto-redirecting during debugging so the log stays
-      // visible. Manual "Continue" link below does the real navigation.
+      // Clear the token out of the visible URL before navigating —
+      // no reason to leave a session token sitting in browser history.
+      window.location.replace("/portal");
     }
 
     completeLogin();
@@ -64,15 +55,17 @@ export default function AuthCallbackPage() {
 
   return (
     <main className="min-h-screen flex items-center justify-center px-6">
-      <div className="max-w-lg w-full bg-white rounded-card border border-council-navy/10 p-6">
-        <p className="font-body text-sm text-council-ink/60 mb-3">Debug output:</p>
-        <pre className="font-mono text-xs whitespace-pre-wrap text-council-ink bg-council-cream p-3 rounded-card">
-          {debugLines.join("\n")}
-        </pre>
-        {status === "debug" && (
-          <a href="/portal" className="mt-4 inline-block font-body text-council-navy underline">
-            Continue to /portal manually →
-          </a>
+      <div className="text-center">
+        {status === "working" ? (
+          <p className="font-body text-council-ink/60">Signing you in…</p>
+        ) : (
+          <div>
+            <p className="font-body text-status-closed mb-2">Something went wrong completing sign-in.</p>
+            {errorDetail && <p className="font-body text-xs text-council-ink/50 mb-2">{errorDetail}</p>}
+            <a href="/portal/login" className="font-body text-council-navy underline">
+              Return to login
+            </a>
+          </div>
         )}
       </div>
     </main>
