@@ -26,7 +26,7 @@ export interface LoginResult {
   redirectTo?: string; // Supabase magic-link action URL that establishes the session
 }
 
-export async function identifyAndSignIn(input: z.infer<typeof loginSchema>): Promise<LoginResult> {
+export async function identifyAndSignIn(input: z.infer<typeof loginSchema>, siteOrigin: string): Promise<LoginResult> {
   const supabase = createServiceRoleClient();
 
   const { data: person, error } = await supabase
@@ -37,25 +37,13 @@ export async function identifyAndSignIn(input: z.infer<typeof loginSchema>): Pro
     )
     .maybeSingle();
 
-  // TEMPORARY DIAGNOSTIC BUILD — specific failure reasons instead of the
-  // usual vague message, so we can see exactly which check is failing
-  // without needing server logs. Revert to the generic message
-  // ("We couldn't verify those details.") for every branch below once
-  // the login issue is confirmed fixed — this specificity is a
-  // information-leak risk in production (reveals whether a registration
-  // number exists), acceptable only temporarily while debugging.
-  if (error) {
-    return { ok: false, reason: `DEBUG: query error — ${error.message}` };
-  }
-  if (!person) {
-    return { ok: false, reason: `DEBUG: no person found matching reg. no. "${input.registrationNumber}"` };
-  }
-  if (person.nin !== input.nin) {
-    return { ok: false, reason: `DEBUG: NIN mismatch — got "${input.nin}", expected length ${person.nin?.length ?? 0}` };
-  }
-  if (INELIGIBLE_STATUSES.includes(person.registration_status as any)) {
-    return { ok: false, reason: `DEBUG: status "${person.registration_status}" is ineligible` };
-  }
+  // Deliberately vague on failure — don't reveal whether the registration
+  // number exists at all, to avoid leaking register contents to a guesser.
+  const genericFailure: LoginResult = { ok: false, reason: "We couldn't verify those details." };
+
+  if (error || !person) return genericFailure;
+  if (person.nin !== input.nin) return genericFailure;
+  if (INELIGIBLE_STATUSES.includes(person.registration_status as any)) return genericFailure;
 
   if (!person.auth_user_id) {
     return {
@@ -68,9 +56,21 @@ export async function identifyAndSignIn(input: z.infer<typeof loginSchema>): Pro
   // approach is a functional placeholder, not a final design, since
   // Supabase Auth expects an email/phone identity and this app's real
   // identity is registration-number + NIN.
+  //
+  // Explicitly setting redirectTo to our own /auth/callback route (rather
+  // than relying on Supabase's global "Site URL" default) is required —
+  // that callback page is what actually reads the token from the URL and
+  // calls setSession() to establish a real cookie-based session. Without
+  // it, the verify link lands the browser back on a page with a valid
+  // token sitting unused in the URL, which looks exactly like the login
+  // "just refreshing" — Supabase confirms the credential correctly, but
+  // nothing on our side ever turns that into a logged-in session.
   const { data: link, error: linkError } = await supabase.auth.admin.generateLink({
     type: "magiclink",
     email: `${person.id}@placeholder.snmc.internal`,
+    options: {
+      redirectTo: `${siteOrigin}/auth/callback`,
+    },
   });
 
   if (linkError || !link) {
