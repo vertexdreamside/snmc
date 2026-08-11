@@ -13,7 +13,12 @@ import { createClient } from "@/lib/supabase/client";
 // page load; without it, the token just sits unused in the URL and the
 // person ends up bounced straight back to the login page.
 export default function AuthCallbackPage() {
-  const [status, setStatus] = useState<"working" | "error">("working");
+  const [debugLines, setDebugLines] = useState<string[]>(["Starting…"]);
+  const [status, setStatus] = useState<"working" | "error" | "debug">("working");
+
+  function log(line: string) {
+    setDebugLines((prev) => [...prev, line]);
+  }
 
   useEffect(() => {
     async function completeLogin() {
@@ -22,22 +27,36 @@ export default function AuthCallbackPage() {
       const access_token = params.get("access_token");
       const refresh_token = params.get("refresh_token");
 
+      log(`Fragment present: ${window.location.hash.length > 0}`);
+      log(`access_token found: ${!!access_token} (length ${access_token?.length ?? 0})`);
+      log(`refresh_token found: ${!!refresh_token} (length ${refresh_token?.length ?? 0})`);
+
       if (!access_token || !refresh_token) {
-        setStatus("error");
+        log("STOPPING: no token in URL fragment.");
+        setStatus("debug");
         return;
       }
 
       const supabase = createClient();
-      const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+      const { data: setData, error } = await supabase.auth.setSession({ access_token, refresh_token });
+
+      log(`setSession error: ${error ? error.message : "none"}`);
+      log(`setSession returned user id: ${setData?.user?.id ?? "none"}`);
 
       if (error) {
-        setStatus("error");
+        log("STOPPING: setSession failed.");
+        setStatus("debug");
         return;
       }
 
-      // Clear the token out of the visible URL before navigating —
-      // no reason to leave a session token sitting in browser history.
-      window.location.replace("/portal");
+      // Confirm the session is actually retrievable right after setting it.
+      const { data: checkData } = await supabase.auth.getSession();
+      log(`getSession() right after: ${checkData.session ? "session found" : "NO SESSION FOUND"}`);
+      log(`Cookies visible to JS right now: ${document.cookie.split(";").filter((c) => c.trim().startsWith("sb-")).map((c) => c.trim().split("=")[0]).join(", ") || "none starting with sb-"}`);
+
+      setStatus("debug");
+      // TEMPORARY: not auto-redirecting during debugging so the log stays
+      // visible. Manual "Continue" link below does the real navigation.
     }
 
     completeLogin();
@@ -45,16 +64,15 @@ export default function AuthCallbackPage() {
 
   return (
     <main className="min-h-screen flex items-center justify-center px-6">
-      <div className="text-center">
-        {status === "working" ? (
-          <p className="font-body text-council-ink/60">Signing you in…</p>
-        ) : (
-          <div>
-            <p className="font-body text-status-closed mb-2">Something went wrong completing sign-in.</p>
-            <a href="/portal/login" className="font-body text-council-navy underline">
-              Return to login
-            </a>
-          </div>
+      <div className="max-w-lg w-full bg-white rounded-card border border-council-navy/10 p-6">
+        <p className="font-body text-sm text-council-ink/60 mb-3">Debug output:</p>
+        <pre className="font-mono text-xs whitespace-pre-wrap text-council-ink bg-council-cream p-3 rounded-card">
+          {debugLines.join("\n")}
+        </pre>
+        {status === "debug" && (
+          <a href="/portal" className="mt-4 inline-block font-body text-council-navy underline">
+            Continue to /portal manually →
+          </a>
         )}
       </div>
     </main>
