@@ -37,13 +37,25 @@ export async function identifyAndSignIn(input: z.infer<typeof loginSchema>): Pro
     )
     .maybeSingle();
 
-  // Deliberately vague on failure — don't reveal whether the registration
-  // number exists at all, to avoid leaking register contents to a guesser.
-  const genericFailure: LoginResult = { ok: false, reason: "We couldn't verify those details." };
-
-  if (error || !person) return genericFailure;
-  if (person.nin !== input.nin) return genericFailure;
-  if (INELIGIBLE_STATUSES.includes(person.registration_status)) return genericFailure;
+  // TEMPORARY DIAGNOSTIC BUILD — specific failure reasons instead of the
+  // usual vague message, so we can see exactly which check is failing
+  // without needing server logs. Revert to the generic message
+  // ("We couldn't verify those details.") for every branch below once
+  // the login issue is confirmed fixed — this specificity is a
+  // information-leak risk in production (reveals whether a registration
+  // number exists), acceptable only temporarily while debugging.
+  if (error) {
+    return { ok: false, reason: `DEBUG: query error — ${error.message}` };
+  }
+  if (!person) {
+    return { ok: false, reason: `DEBUG: no person found matching reg. no. "${input.registrationNumber}"` };
+  }
+  if (person.nin !== input.nin) {
+    return { ok: false, reason: `DEBUG: NIN mismatch — got "${input.nin}", expected length ${person.nin?.length ?? 0}` };
+  }
+  if (INELIGIBLE_STATUSES.includes(person.registration_status as any)) {
+    return { ok: false, reason: `DEBUG: status "${person.registration_status}" is ineligible` };
+  }
 
   if (!person.auth_user_id) {
     return {
