@@ -32,7 +32,7 @@ export function CreateElectionForm() {
         value={termLabel}
         onChange={(e) => setTermLabel(e.target.value)}
         placeholder="Term label, e.g. 2026-2029"
-        className="flex-1 border border-council-navy/20 rounded-card px-3 py-2 font-body text-sm focus:outline-none focus:ring-2 focus:ring-council-gold"
+        className="flex-1 border border-council-navy/20 rounded-card px-3 py-2 font-body text-sm focus:outline-none focus:ring-2 focus:ring-council-cyan"
       />
       <button
         type="submit"

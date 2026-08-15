@@ -5,6 +5,7 @@ import {
   ShieldQuestion,
   Vote,
   BarChart3,
+  Database,
   ScrollText,
   ShieldCheck,
 } from "lucide-react";
@@ -49,7 +50,10 @@ export const NAV_GROUPS: {
   },
   {
     label: "Analytics",
-    items: [{ href: "/admin/reports", label: "Reports", icon: BarChart3 }],
+    items: [
+      { href: "/admin/reports", label: "Reports", icon: BarChart3 },
+      { href: "/admin/data-export", label: "Data Export", icon: Database },
+    ],
   },
   {
     label: "System",

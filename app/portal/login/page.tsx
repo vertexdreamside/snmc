@@ -67,7 +67,7 @@ function Field({
         required
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full border border-council-navy/20 rounded-card px-3 py-2 font-body focus:outline-none focus:ring-2 focus:ring-council-gold"
+        className="w-full border border-council-navy/20 rounded-card px-3 py-2 font-body focus:outline-none focus:ring-2 focus:ring-council-cyan"
       />
     </label>
   );

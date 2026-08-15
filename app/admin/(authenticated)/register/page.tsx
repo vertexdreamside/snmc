@@ -39,7 +39,7 @@ export default async function AdminRegisterPage({
           name="q"
           defaultValue={searchParams.q}
           placeholder="Search name or registration number…"
-          className="flex-1 min-w-[200px] border border-council-navy/20 rounded-card px-3 py-2 font-body text-sm focus:outline-none focus:ring-2 focus:ring-council-gold"
+          className="flex-1 min-w-[200px] border border-council-navy/20 rounded-card px-3 py-2 font-body text-sm focus:outline-none focus:ring-2 focus:ring-council-cyan"
         />
         <select
           name="status"

@@ -36,7 +36,7 @@ export default async function PortalHome() {
       )}
 
       {openElections && openElections.length > 0 && (
-        <section className="bg-white rounded-card border border-council-gold p-6">
+        <section className="bg-white rounded-card border border-council-cyan p-6">
           <h2 className="font-display text-lg text-council-navy mb-3">Voting Open</h2>
           {openElections.map((e) => (
             <a key={e.id} href={`/portal/vote/${e.id}`} className="block font-body text-council-navy underline">

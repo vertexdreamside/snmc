@@ -68,7 +68,7 @@ export function ProfileForm({ person }: { person: Omit<Person, "nin" | "notes"> 
         <select
           value={form.employment_sector}
           onChange={(e) => update("employment_sector", e.target.value as "Government" | "Private")}
-          className="w-full border border-council-navy/20 rounded-card px-3 py-2 font-body focus:outline-none focus:ring-2 focus:ring-council-gold"
+          className="w-full border border-council-navy/20 rounded-card px-3 py-2 font-body focus:outline-none focus:ring-2 focus:ring-council-cyan"
         >
           <option value="Government">Government</option>
           <option value="Private">Private</option>
@@ -113,7 +113,7 @@ function Field({
         required={required}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full border border-council-navy/20 rounded-card px-3 py-2 font-body focus:outline-none focus:ring-2 focus:ring-council-gold"
+        className="w-full border border-council-navy/20 rounded-card px-3 py-2 font-body focus:outline-none focus:ring-2 focus:ring-council-cyan"
       />
     </label>
   );

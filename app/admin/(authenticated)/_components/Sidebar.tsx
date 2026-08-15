@@ -36,7 +36,7 @@ export function Sidebar({ fullName, role }: { fullName: string | null; role: Adm
       </div>
 
       <div className="flex items-center gap-3 px-5 py-4 border-b border-white/10">
-        <div className="w-8 h-8 rounded-full bg-council-gold/20 flex items-center justify-center text-council-goldLight font-body text-xs font-medium shrink-0">
+        <div className="w-8 h-8 rounded-full bg-council-cyan/20 flex items-center justify-center text-council-cyanLight font-body text-xs font-medium shrink-0">
           {initials(fullName)}
         </div>
         {!collapsed && (
@@ -64,7 +64,7 @@ export function Sidebar({ fullName, role }: { fullName: string | null; role: Adm
                   href={item.href}
                   className={`flex items-center gap-3 px-5 py-2 font-body text-sm transition-colors ${
                     active
-                      ? "bg-white/10 text-white border-l-2 border-council-gold"
+                      ? "bg-white/10 text-white border-l-2 border-council-cyan"
                       : "text-white/70 hover:bg-white/5 hover:text-white border-l-2 border-transparent"
                   }`}
                 >

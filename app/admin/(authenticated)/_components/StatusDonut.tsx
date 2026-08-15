@@ -3,8 +3,8 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 
 const COLORS: Record<string, string> = {
-  Practising: "#1E7D4F",
-  "Not Practising": "#C9922B",
+  Practising: "#17AEE0",
+  "Not Practising": "#B8860B",
   Retired: "#5F5E5A",
   Abroad: "#378ADD",
   Deceased: "#8A2C2C",

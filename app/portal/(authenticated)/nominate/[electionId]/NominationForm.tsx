@@ -101,7 +101,7 @@ function CategorySection({ electionId, category }: { electionId: string; categor
             value={query}
             onChange={(e) => handleSearch(e.target.value)}
             placeholder="Start typing a name…"
-            className="w-full border border-council-navy/20 rounded-card px-3 py-2 font-body focus:outline-none focus:ring-2 focus:ring-council-gold"
+            className="w-full border border-council-navy/20 rounded-card px-3 py-2 font-body focus:outline-none focus:ring-2 focus:ring-council-cyan"
           />
         </label>
 
@@ -134,7 +134,7 @@ function CategorySection({ electionId, category }: { electionId: string; categor
             required
             value={currentPlacement}
             onChange={(e) => setCurrentPlacement(e.target.value)}
-            className="w-full border border-council-navy/20 rounded-card px-3 py-2 font-body focus:outline-none focus:ring-2 focus:ring-council-gold"
+            className="w-full border border-council-navy/20 rounded-card px-3 py-2 font-body focus:outline-none focus:ring-2 focus:ring-council-cyan"
           />
         </label>
 
