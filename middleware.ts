@@ -39,11 +39,31 @@ export async function middleware(request: NextRequest) {
     }
   );
 
+  const { pathname } = request.nextUrl;
+  const relevantPath = pathname.startsWith("/portal") || pathname.startsWith("/admin") || pathname.startsWith("/council");
+
   const {
     data: { user },
+    error: getUserError,
   } = await supabase.auth.getUser();
 
-  const { pathname } = request.nextUrl;
+  // TEMPORARY diagnostic logging (visible in Vercel Runtime Logs, not to
+  // the browser). A cookie confirmed present, correctly domained, and
+  // correctly formatted still resulted in this route treating the visitor
+  // as signed out — so the failure is specifically inside this
+  // getUser() call, not in whether a cookie exists. This logs the actual
+  // error Supabase's SDK returns rather than the account of "no error,
+  // just no user" we've assumed until now.
+  if (relevantPath) {
+    console.log("MIDDLEWARE AUTH CHECK", {
+      pathname,
+      incomingCookieNames: request.cookies.getAll().map((c) => c.name),
+      hasUser: !!user,
+      getUserErrorMessage: getUserError?.message,
+      getUserErrorStatus: (getUserError as any)?.status,
+      getUserErrorName: getUserError?.name,
+    });
+  }
 
   const isAdminRoute = pathname.startsWith("/admin") && pathname !== "/admin/login";
   const isCouncilRoute = pathname.startsWith("/council");
