@@ -37,7 +37,19 @@ export async function requirePortalUser(): Promise<Person> {
   const supabase = createClient();
   const {
     data: { user },
+    error: getUserError,
   } = await supabase.auth.getUser();
+
+  // TEMPORARY diagnostic logging (Vercel Runtime Logs only). Middleware
+  // has confirmed hasUser: true for the same request cycle, so this
+  // checks whether the SAME session is visible here too, and — if so —
+  // whether the person lookup by auth_user_id is what's actually failing.
+  console.log("REQUIRE-PORTAL-USER DEBUG", {
+    hasUser: !!user,
+    userId: user?.id,
+    getUserErrorMessage: getUserError?.message,
+  });
+
   if (!user) redirect("/portal/login");
 
   const { data: person, error } = await supabase
@@ -47,6 +59,13 @@ export async function requirePortalUser(): Promise<Person> {
     )
     .eq("auth_user_id", user.id)
     .single();
+
+  console.log("REQUIRE-PORTAL-USER DEBUG person lookup", {
+    foundPerson: !!person,
+    lookupErrorMessage: error?.message,
+    lookupErrorCode: error?.code,
+    searchedAuthUserId: user.id,
+  });
 
   if (error || !person) redirect("/portal/login");
   return person as Person;
