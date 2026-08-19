@@ -3,6 +3,13 @@ import { requireCouncillor } from "@/lib/auth/guards";
 
 // Councillor Portal shell (Section 4a). Default scope only — flagged in
 // the build spec as needing Council confirmation before it grows further.
+//
+// See the matching comment in app/portal/(authenticated)/layout.tsx —
+// forces fresh rendering with zero caching, added while ruling out a
+// cached-response theory for a persistent session bug.
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+
 export default async function CouncilLayout({ children }: { children: React.ReactNode }) {
   const { person } = await requireCouncillor();
 
