@@ -1,32 +1,23 @@
-import Image from "next/image";
-import Link from "next/link";
-import { requirePortalUser } from "@/lib/auth/guards";
+import { requireAdmin } from "@/lib/auth/guards";
+import { Sidebar } from "./_components/Sidebar";
+import { Topbar } from "./_components/Topbar";
 
-export default async function PortalLayout({ children }: { children: React.ReactNode }) {
-  const person = await requirePortalUser();
+// See the matching comment in app/portal/(authenticated)/layout.tsx —
+// forces fresh rendering with zero caching, added while ruling out a
+// cached-response theory for a persistent session bug.
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  const admin = await requireAdmin();
 
   return (
-    <div className="min-h-screen">
-      <header className="bg-council-navy text-white px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-3">
-            <Image src="/snmc-emblem.png" alt="" width={28} height={28} aria-hidden="true" />
-            <span className="font-display">SNMC — Nurse / Midwife Portal</span>
-          </div>
-          <nav className="hidden sm:flex gap-4 font-body text-sm text-white/70">
-            <Link href="/portal" className="hover:text-white">
-              Home
-            </Link>
-            <Link href="/portal/profile" className="hover:text-white">
-              Profile
-            </Link>
-          </nav>
-        </div>
-        <span className="font-body text-sm text-white/70">
-          {person.first_name} {person.last_name}
-        </span>
-      </header>
-      <div className="p-6">{children}</div>
+    <div className="min-h-screen flex bg-council-cream">
+      <Sidebar fullName={admin.full_name} role={admin.role} />
+      <div className="flex-1 flex flex-col min-w-0">
+        <Topbar />
+        <main className="flex-1 p-6 overflow-y-auto">{children}</main>
+      </div>
     </div>
   );
 }
