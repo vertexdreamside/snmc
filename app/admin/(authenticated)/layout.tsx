@@ -2,6 +2,12 @@ import { requireAdmin } from "@/lib/auth/guards";
 import { Sidebar } from "./_components/Sidebar";
 import { Topbar } from "./_components/Topbar";
 
+// See the matching comment in app/portal/(authenticated)/layout.tsx —
+// forces fresh rendering with zero caching, added while ruling out a
+// cached-response theory for a persistent session bug.
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const admin = await requireAdmin();
 
