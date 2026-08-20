@@ -11,7 +11,7 @@ export default async function ClassifyPage({ searchParams }: { searchParams: { q
     .select("id, first_name, last_name, nurse_reg_no, midwife_reg_no, professional_category")
     .eq("category_confirmed", false)
     .order("last_name")
-    .limit(200);
+    .limit(500);
 
   if (searchParams.q) {
     query = query.or(`first_name.ilike.%${searchParams.q}%,last_name.ilike.%${searchParams.q}%`);
@@ -44,7 +44,10 @@ export default async function ClassifyPage({ searchParams }: { searchParams: { q
       </form>
 
       <ClassifyTable people={people ?? []} />
-      <p className="font-body text-xs text-council-ink/40">Showing up to 200 at a time — search to narrow, or repeat after confirming a batch.</p>
+      <p className="font-body text-xs text-council-ink/40">
+        Showing up to 500 at a time (matching the bulk-confirm limit) — confirmed records drop off this list
+        automatically, so repeat as needed until the count above reaches 0.
+      </p>
     </div>
   );
 }

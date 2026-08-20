@@ -4,23 +4,32 @@ import { createClient } from "@/lib/supabase/server";
 
 const STATUS_OPTIONS = ["Practising", "Not Practising", "Retired", "Abroad", "Deceased", "Deleted", "Unknown"];
 const PROFILE_STATUS_OPTIONS = ["Approved", "Pending Review", "Rejected"];
+const PAGE_SIZE = 100;
 
 export default async function AdminRegisterPage({
   searchParams,
 }: {
-  searchParams: { q?: string; status?: string; profile_status?: string };
+  searchParams: { q?: string; status?: string; profile_status?: string; page?: string };
 }) {
   await requireAdmin();
   const supabase = createClient();
 
+  const currentPage = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
+  const from = (currentPage - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
+
   let query = supabase
     .from("people")
-    .select("id, first_name, last_name, nurse_reg_no, midwife_reg_no, professional_category, registration_status, profile_status")
+    .select("id, first_name, last_name, nurse_reg_no, midwife_reg_no, professional_category, registration_status, profile_status", {
+      count: "exact",
+    })
     .order("last_name")
-    .limit(100);
+    .range(from, to);
 
   if (searchParams.q) {
-    query = query.or(`first_name.ilike.%${searchParams.q}%,last_name.ilike.%${searchParams.q}%,nurse_reg_no.ilike.%${searchParams.q}%,midwife_reg_no.ilike.%${searchParams.q}%`);
+    query = query.or(
+      `first_name.ilike.%${searchParams.q}%,last_name.ilike.%${searchParams.q}%,nurse_reg_no.ilike.%${searchParams.q}%,midwife_reg_no.ilike.%${searchParams.q}%`
+    );
   }
   if (searchParams.status) {
     query = query.eq("registration_status", searchParams.status);
@@ -29,7 +38,23 @@ export default async function AdminRegisterPage({
     query = query.eq("profile_status", searchParams.profile_status);
   }
 
-  const { data: people } = await query;
+  const { data: people, count } = await query;
+
+  const totalCount = count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const rangeStart = totalCount === 0 ? 0 : from + 1;
+  const rangeEnd = Math.min(from + PAGE_SIZE, totalCount);
+
+  // Preserve the active filters when building page links, so paging
+  // doesn't silently drop a search/filter someone already applied.
+  function pageHref(page: number) {
+    const params = new URLSearchParams();
+    if (searchParams.q) params.set("q", searchParams.q);
+    if (searchParams.status) params.set("status", searchParams.status);
+    if (searchParams.profile_status) params.set("profile_status", searchParams.profile_status);
+    params.set("page", String(page));
+    return `/admin/register?${params.toString()}`;
+  }
 
   return (
     <div className="space-y-4">
@@ -110,8 +135,46 @@ export default async function AdminRegisterPage({
           </tbody>
         </table>
       </div>
-      <p className="font-body text-xs text-council-ink/40">Showing up to 100 results — narrow your search for more precise results.</p>
+
+      <div className="flex items-center justify-between">
+        <p className="font-body text-xs text-council-ink/40">
+          {totalCount === 0
+            ? "No matching records."
+            : `Showing ${rangeStart}–${rangeEnd} of ${totalCount.toLocaleString()}`}
+        </p>
+        {totalPages > 1 && (
+          <div className="flex items-center gap-2">
+            <PageLink href={pageHref(currentPage - 1)} disabled={currentPage <= 1}>
+              ← Previous
+            </PageLink>
+            <span className="font-body text-xs text-council-ink/50">
+              Page {currentPage} of {totalPages}
+            </span>
+            <PageLink href={pageHref(currentPage + 1)} disabled={currentPage >= totalPages}>
+              Next →
+            </PageLink>
+          </div>
+        )}
+      </div>
     </div>
+  );
+}
+
+function PageLink({ href, disabled, children }: { href: string; disabled: boolean; children: React.ReactNode }) {
+  if (disabled) {
+    return (
+      <span className="font-body text-xs text-council-ink/30 border border-council-navy/10 rounded-card px-3 py-1.5 cursor-not-allowed">
+        {children}
+      </span>
+    );
+  }
+  return (
+    <Link
+      href={href}
+      className="font-body text-xs text-council-navy border border-council-navy/20 rounded-card px-3 py-1.5 hover:bg-council-cream"
+    >
+      {children}
+    </Link>
   );
 }
 
