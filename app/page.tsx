@@ -1,61 +1,69 @@
-import { requirePortalUser } from "@/lib/auth/guards";
-import { createClient } from "@/lib/supabase/server";
-import { EmptyState } from "@/lib/components/EmptyState";
-import { NominationForm } from "./NominationForm";
+import Image from "next/image";
+import Link from "next/link";
+import { Stethoscope, Users, ShieldCheck } from "lucide-react";
+import { ContactFooter } from "@/lib/components/ContactFooter";
 
-// Digital equivalent of the paper Nomination Form. See the historical
-// instructions quoted in lib/auth's nominate/vote eligibility comments —
-// the same "who may nominate whom" rule applies here as at voting time.
-export default async function NominatePage({ params }: { params: { electionId: string } }) {
-  const person = await requirePortalUser();
-  const supabase = createClient();
-
-  const { data: election } = await supabase
-    .from("elections")
-    .select("id, term_label, status")
-    .eq("id", params.electionId)
-    .single();
-
-  if (!election) {
-    return <EmptyState message="Election not found." backHref="/portal" backLabel="← Back to portal" />;
-  }
-  // Round 1 = nomination collection, per the historical process. Round 2
-  // is the actual election vote on the shortlisted nominees.
-  if (election.status !== "Nomination Open") {
-    return (
-      <EmptyState
-        message={`Nominations for ${election.term_label} are not currently open.`}
-        backHref="/portal"
-        backLabel="← Back to portal"
-      />
-    );
-  }
-
-  const eligibleCategories: ("Nurse" | "Midwife")[] =
-    person.professional_category === "Both"
-      ? ["Nurse", "Midwife"]
-      : person.professional_category === "Nurse" || person.professional_category === "Midwife"
-        ? [person.professional_category]
-        : [];
-
+// Landing page: a plain switchboard to the three portals (Section 1.1).
+// No aggressive marketing copy — this is a utility for people who already
+// know what they're here to do. Header treatment (dark navy-to-black
+// gradient band) matches the live SNMC website's hero style.
+export default function HomePage() {
   return (
-    <div className="max-w-xl mx-auto space-y-6">
-      <div>
-        <h1 className="font-display text-2xl text-council-navy">Nomination — {election.term_label}</h1>
-        <p className="font-body text-sm text-council-ink/60 mt-1">
-          Nominate a candidate to serve on the Seychelles Nurses and Midwives Council.
-        </p>
+    <main className="min-h-screen bg-white flex flex-col">
+      <div className="bg-council-header pt-16 pb-24 px-6">
+        <div className="max-w-2xl mx-auto text-center">
+          <Image
+            src="/snmc-emblem.png"
+            alt="SNMC emblem"
+            width={64}
+            height={64}
+            className="mx-auto mb-4"
+            priority
+          />
+          <h1 className="font-display text-3xl md:text-4xl text-white mb-2">
+            Seychelles Nurses &amp; Midwives Council
+          </h1>
+          <p className="font-body text-council-cyanLight">Excellence in Practice · Safety in Care</p>
+        </div>
       </div>
 
-      {eligibleCategories.length === 0 ? (
-        <EmptyState
-          message="Your registration status doesn't currently permit submitting a nomination."
-          backHref="/portal"
-          backLabel="← Back to portal"
-        />
-      ) : (
-        <NominationForm electionId={election.id} eligibleCategories={eligibleCategories} />
-      )}
-    </div>
+      <div className="max-w-2xl mx-auto px-6 -mt-12 pb-16 w-full">
+        <div className="grid gap-4 sm:grid-cols-3">
+          <PortalCard
+            href="/portal/login"
+            icon={Stethoscope}
+            title="Nurse / Midwife Portal"
+            desc="Vote, view or update your profile"
+          />
+          <PortalCard href="/council" icon={Users} title="Councillor Portal" desc="Council members" />
+          <PortalCard href="/admin/login" icon={ShieldCheck} title="Staff Portal" desc="Council office administration" />
+        </div>
+      </div>
+
+      <ContactFooter />
+    </main>
+  );
+}
+
+function PortalCard({
+  href,
+  icon: Icon,
+  title,
+  desc,
+}: {
+  href: string;
+  icon: React.ElementType;
+  title: string;
+  desc: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="block bg-white rounded-card border border-council-navy/10 shadow-sm p-6 text-left hover:border-council-cyan transition-colors"
+    >
+      <Icon size={28} strokeWidth={1.75} className="text-council-cyan mb-3" aria-hidden="true" />
+      <h2 className="font-display text-lg text-council-navy mb-1">{title}</h2>
+      <p className="font-body text-sm text-council-ink/60">{desc}</p>
+    </Link>
   );
 }
