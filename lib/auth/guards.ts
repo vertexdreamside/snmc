@@ -3,52 +3,22 @@
 // redirects on failure. Keeping this in one file makes the three-portal
 // boundary auditable in one place rather than scattered across pages.
 //
-// ADMIN ROLE PERMISSIONS (as currently wired into route handlers via
-// requireAdmin([...])) — this mapping is a reasonable starting default,
-// NOT something the Council has confirmed. Revisit once they specify real
-// requirements for Minister/Supervisor/Manager, the three roles added in
-// migration 0005 beyond the original four:
-//
-//   Super Admin         — everything, including managing admin accounts
-//                          (/admin/users, Super Admin only).
-//   Manager              — registration approval/edit AND election
-//                          management (Registration Officer + Election
-//                          Officer combined), not admin-account management.
-//   Supervisor            — registration approval/edit only (same scope as
-//                          Registration Officer), no election access.
-//   Registration Officer  — approve/reject profiles, edit fields, mark
-//                          deceased, bulk-confirm categories.
-//   Election Officer      — create/manage elections, shortlist candidates,
-//                          advance rounds, publish results.
-//   Minister              — no elevated write access currently; same as
-//                          Read Only (dashboard + reports). The 2004
-//                          Regulations give the Minister a real appointment
-//                          role for 2 Nurse + 1 Midwife Council seats, but
-//                          that's a decision made outside this system, not
-//                          a platform permission — flagged here rather than
-//                          guessed at.
-//   Read Only              — dashboard + reports only, no writes anywhere.
+// Admin access is permission-based, not role-based (see migration 0007 and
+// lib/auth/permissions.ts) — the Council defines exactly what a given
+// person can do via four independent flags (reports/register/elections/
+// users) plus a full_access override, rather than picking from a fixed
+// list of preset roles. `role` on admin_users is a free-text title only,
+// shown in the UI, and carries no access-control meaning.
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { AdminRole, Person } from "@/lib/types/database";
+import type { AdminPermission, Person } from "@/lib/types/database";
 
 export async function requirePortalUser(): Promise<Person> {
   const supabase = createClient();
   const {
     data: { user },
-    error: getUserError,
   } = await supabase.auth.getUser();
-
-  // TEMPORARY diagnostic logging (Vercel Runtime Logs only). Middleware
-  // has confirmed hasUser: true for the same request cycle, so this
-  // checks whether the SAME session is visible here too, and — if so —
-  // whether the person lookup by auth_user_id is what's actually failing.
-  console.log("REQUIRE-PORTAL-USER DEBUG", {
-    hasUser: !!user,
-    userId: user?.id,
-    getUserErrorMessage: getUserError?.message,
-  });
 
   if (!user) redirect("/portal/login");
 
@@ -59,13 +29,6 @@ export async function requirePortalUser(): Promise<Person> {
     )
     .eq("auth_user_id", user.id)
     .single();
-
-  console.log("REQUIRE-PORTAL-USER DEBUG person lookup", {
-    foundPerson: !!person,
-    lookupErrorMessage: error?.message,
-    lookupErrorCode: error?.code,
-    searchedAuthUserId: user.id,
-  });
 
   if (error || !person) redirect("/portal/login");
   return person as Person;
@@ -91,22 +54,35 @@ export async function requireCouncillor(): Promise<{ person: Person; termId: str
   return { person, termId: term.id };
 }
 
-export async function requireAdmin(allowedRoles?: AdminRole[]) {
+const PERMISSION_COLUMN: Record<AdminPermission, string> = {
+  reports: "can_view_reports",
+  register: "can_manage_register",
+  elections: "can_manage_elections",
+  users: "can_manage_admin_users",
+};
+
+const ADMIN_SELECT =
+  "id, auth_user_id, role, full_name, can_view_reports, can_manage_register, can_manage_elections, can_manage_admin_users, full_access";
+
+// `required` lists which permissions would grant access — any one of them
+// is enough (OR semantics), same as the old role-list model. Omit it
+// entirely for pages any signed-in admin may view (e.g. a read-only
+// detail page), and gate the actual write actions on that page's own API
+// route calls to requireAdmin([...]) instead.
+export async function requireAdmin(required?: AdminPermission[]) {
   const supabase = createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/admin/login");
 
-  const { data: admin, error } = await supabase
-    .from("admin_users")
-    .select("id, auth_user_id, role, full_name")
-    .eq("auth_user_id", user.id)
-    .single();
+  const { data: admin, error } = await supabase.from("admin_users").select(ADMIN_SELECT).eq("auth_user_id", user.id).single();
 
   if (error || !admin) redirect("/admin/login");
-  if (allowedRoles && !allowedRoles.includes(admin.role)) {
-    redirect("/admin"); // signed in, just not permitted on this page
+
+  if (required && required.length > 0 && !admin.full_access) {
+    const hasAny = required.some((p) => admin[PERMISSION_COLUMN[p] as keyof typeof admin] === true);
+    if (!hasAny) redirect("/admin"); // signed in, just not permitted on this page
   }
 
   return admin;

@@ -14,20 +14,13 @@ export type RegistrationStatus =
 export type ProfessionalCategory = "Nurse" | "Midwife" | "Both";
 export type ProfileStatus = "Approved" | "Pending Review" | "Rejected";
 export type ServiceCategory = "Hospital" | "Community" | "Private" | "Unspecified";
-export type AdminRole =
-  | "Super Admin"
-  | "Registration Officer"
-  | "Election Officer"
-  | "Read Only"
-  | "Minister"
-  | "Supervisor"
-  | "Manager";
+export type AdminPermission = "reports" | "register" | "elections" | "users";
 export type ElectionStatus =
   | "Planned"
-  | "Round 1 Open"
-  | "Round 1 Closed"
-  | "Round 2 Open"
-  | "Round 2 Closed"
+  | "Nomination Open"
+  | "Nomination Closed"
+  | "Election Open"
+  | "Election Closed"
   | "Completed";
 export type CandidateStatus = "Nominated" | "Shortlisted" | "Elected" | "Not Elected";
 export type AppointmentType = "Elected" | "Appointed";
@@ -109,6 +102,11 @@ export interface CouncillorTerm {
 export interface AdminUser {
   id: string;
   auth_user_id: string;
-  role: AdminRole;
+  role: string; // free-text title/label only — see migration 0007
   full_name: string | null;
+  can_view_reports: boolean;
+  can_manage_register: boolean;
+  can_manage_elections: boolean;
+  can_manage_admin_users: boolean;
+  full_access: boolean;
 }
