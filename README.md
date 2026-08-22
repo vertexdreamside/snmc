@@ -16,6 +16,7 @@ document). TypeScript, Next.js (App Router), Supabase, deployed on Vercel.
   in order
 - `supabase/seed/import-register.md` — how to migrate the cleaned register
 
+
 ## Admin (Staff Portal)
 
 - **`/admin/register`** — search/filter the full register (name, reg. no.,
