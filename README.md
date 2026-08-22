@@ -73,45 +73,53 @@ matters.
 
 ## Admin users (Council staff, Ministers, Supervisors, Managers)
 
-**`/admin/users`** (Super Admin only) — invite new admin users by email,
-assign a role, change an existing user's role, or remove admin access.
-Invitations go through Supabase Auth's real invite-by-email flow (a magic
-link the person uses to set up sign-in) — nobody's password is ever
-typed, seen, or handled by this app.
+**`/admin/users`** — invite new admin users by email, define exactly what
+each person can do, or remove admin access. Invitations go through
+Supabase Auth's real invite-by-email flow (a magic link the person uses
+to set up sign-in) — nobody's password is ever typed, seen, or handled
+by this app.
 
-Migration `0005` adds three roles beyond the original four:
+**Migration `0007` replaced the earlier fixed-role model with real,
+per-user permissions**, per explicit direction: the Council should be
+able to define a person's exact privileges, not pick from a preset list.
+Each admin user now has four independent boolean flags, plus one
+override:
 
-| Role | Access |
+| Flag | Grants |
 |---|---|
-| Super Admin | Everything, including managing other admin users |
-| Manager | Registration approval/edit **and** election management |
-| Supervisor | Registration approval/edit only |
-| Registration Officer | Registration approval/edit, category confirmation |
-| Election Officer | Election setup, shortlisting, rounds, publishing results |
-| Minister | Dashboard + reports only (same as Read Only) |
-| Read Only | Dashboard + reports only |
+| `can_view_reports` | `/admin/reports`, `/admin/data-export` |
+| `can_manage_register` | Approve/reject profiles, edit fields, mark deceased, bulk-confirm categories |
+| `can_manage_elections` | Election setup, shortlisting, rounds, publishing results |
+| `can_manage_admin_users` | Invite/edit/remove other admin users, reset their passwords |
+| `full_access` | Bypasses all of the above — unrestricted |
 
-**This mapping is a reasonable default I picked, not something the
-Council has confirmed** — flagged in `lib/auth/guards.ts` and
-`lib/auth/permissions.ts` where it's actually enforced. Worth a real
-conversation before go-live: the 2004 Regulations give the Minister an
-actual appointment role (2 Nurses + 1 Midwife to Council), which isn't
-the same thing as a platform permission and isn't modeled here at all —
-that decision happens outside this system.
+`role` is now a **free-text title only** (e.g. "Election Officer,"
+"Treasurer") — purely descriptive, shown in the sidebar and admin-users
+list, and carries no access-control meaning on its own. This is enforced
+in `lib/auth/guards.ts`'s `requireAdmin([...])`, which takes permission
+keys (`"reports" | "register" | "elections" | "users"`) rather than role
+names — `lib/auth/permissions.ts` mirrors the same checks for the
+dashboard/sidebar's own conditional rendering.
+
+Worth a real conversation before go-live, unchanged from before: the
+2004 Regulations give the Minister an actual appointment role (2 Nurses
++ 1 Midwife to Council), which isn't the same thing as a platform
+permission and isn't modeled here at all — that decision happens outside
+this system.
 
 **Password resets**: each admin user row has a "Reset Password" button
-(Super Admin only) that triggers Supabase's built-in password-reset
-email — nobody at the Council, including a Super Admin, ever sees or sets
-another person's password. It goes to whatever email that account was
-invited with.
+(requires the "users" permission) that triggers Supabase's built-in
+password-reset email — nobody at the Council, including a Super Admin,
+ever sees or sets another person's password. It goes to whatever email
+that account was invited with.
 
-**The dashboard and sidebar are also role-scoped**, using the same
-mapping (`lib/auth/permissions.ts`): a Registration Officer sees register
-stats and the Confirm-Categories nav item but no Elections section; an
-Election Officer sees the reverse; Minister/Read Only see everything,
-read-only, with no action banners. This is a real filter, not just
-hidden buttons — the sidebar only renders links a role's `requireAdmin()`
-calls would actually let it use.
+**The dashboard and sidebar are permission-scoped**, using the same
+flags: someone with only `can_manage_register` sees register stats and
+the Confirm-Categories nav item but no Elections section; someone with
+only `can_view_reports` sees everything read-only, with no action
+banners. This is a real filter, not just hidden buttons — the sidebar
+only renders links a person's actual `requireAdmin()` permissions would
+let through.
 
 Operational note: invite emails go out through Supabase's built-in email
 sending, which has a low rate limit meant for development/testing —
@@ -122,23 +130,42 @@ send once you exceed it.
 
 ## Auth
 
-Login is **Registration Number + NIN only** — no OTP/second factor, kept
-simple for now. This is a stated trade-off, not an oversight: see the
-comment at the top of `lib/auth/identify.ts`. If the Council wants stronger
-assurance before Round 1 goes live, a second factor can be re-added at that
-exact function boundary without touching the rest of the app.
+Login is **Registration Number required, NIN only when it's on file**.
+No OTP/second factor either — kept simple for now. Both are stated
+trade-offs, not oversights: see the comment at the top of
+`lib/auth/identify.ts`.
+
+The NIN behavior specifically exists because the legacy register was
+never consistently populated with NINs — every record imported so far is
+missing one. Rather than lock everyone out, the check is conditional:
+blank `nin` on file means registration number alone is accepted; a
+populated `nin` means it's required and verified, same as before. This
+self-strengthens per person as real NIN data gets added (by an admin, or
+a future self-service KYC flow) — no code change needed later to "turn
+it back on." Until NINs are filled in broadly, though, know that anyone
+who knows a person's registration number (which isn't secret — it's on
+their public licence) can currently sign in as them.
+
+If the Council wants stronger assurance before Round 1 goes live, a
+second factor can be re-added at the same function boundary without
+touching the rest of the app.
 
 ## What's stubbed / needs a real decision before go-live
 
 Everything below is called out in-line with a `TODO` or a comment pointing
 back to the relevant section of the build spec:
 
-- **First-login account provisioning** (`lib/auth/identify.ts`) — the
-  magic-link approach used to issue a session is a placeholder, not a
-  final design. Supabase Auth is built around email/phone identities;
-  this app's real identity is registration-number + NIN. Worth a proper
-  design pass (e.g. a custom JWT minted server-side) rather than bending
-  Supabase's built-in flows further.
+- **First-login account provisioning** — fixed for real (was a genuine
+  bug, not just a design placeholder): `people.auth_user_id` now
+  self-heals to whatever auth user `generateLink()` actually returns,
+  instead of requiring it to be correctly pre-set by hand. Previously, if
+  that value was ever wrong or unset, login would silently create a
+  second, disconnected auth account on first use — the person got a
+  fully valid session the app could never match back to their profile,
+  bouncing them to the login page every time with no visible error. The
+  underlying design (a magic-link workaround for a reg-number+NIN
+  identity Supabase Auth wasn't built for) is still a reasonable target
+  for a proper custom-JWT redesign eventually, but it's no longer broken.
 - **Round 2 trigger logic, tie-breaks, proxy voting** — not implemented;
   Round 1 only. See build spec Section 10.
 - **19 registration-number conflicts** — must be resolved (or worked
