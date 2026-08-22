@@ -6,10 +6,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
+import { SNMC_CONTACT } from "@/lib/components/ContactFooter";
 
 const castVoteSchema = z.object({
   electionId: z.string().uuid(),
-  round: z.number().int().min(1).max(2),
+  round: z.literal(2), // Round 1 is nomination-only; the ballot only exists in Round 2. See build spec.
   category: z.enum(["Nurse", "Midwife"]),
   candidateId: z.string().uuid(),
 });
@@ -48,7 +49,7 @@ export async function POST(request: Request) {
   }
   if (!person.category_confirmed) {
     return NextResponse.json(
-      { ok: false, reason: "Your Nurse/Midwife category hasn't been confirmed by the Council yet. Please contact the Council office." },
+      { ok: false, reason: `Your Nurse/Midwife category hasn't been confirmed by the Council yet. Please contact the Council office at ${SNMC_CONTACT.phone} or ${SNMC_CONTACT.email}.` },
       { status: 403 }
     );
   }
@@ -59,9 +60,8 @@ export async function POST(request: Request) {
   }
 
   const { data: election } = await supabase.from("elections").select("status").eq("id", electionId).single();
-  const expectedStatus = round === 1 ? "Round 1 Open" : "Round 2 Open";
-  if (!election || election.status !== expectedStatus) {
-    return NextResponse.json({ ok: false, reason: "Voting is not currently open for this round." }, { status: 403 });
+  if (!election || election.status !== "Election Open") {
+    return NextResponse.json({ ok: false, reason: "Voting is not currently open." }, { status: 403 });
   }
 
   // Use the service-role client for the actual writes so we can do them as
@@ -103,7 +103,7 @@ export async function POST(request: Request) {
       details: { electionId, round, category },
     });
     return NextResponse.json(
-      { ok: false, reason: "Something went wrong recording your ballot. Please contact the Council office." },
+      { ok: false, reason: `Something went wrong recording your ballot. Please contact the Council office at ${SNMC_CONTACT.phone} or ${SNMC_CONTACT.email}.` },
       { status: 500 }
     );
   }

@@ -15,7 +15,7 @@ const bulkClassifySchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const admin = await requireAdmin(["Registration Officer", "Supervisor", "Manager", "Super Admin"]);
+  const admin = await requireAdmin(["register"]);
 
   const body = await request.json();
   const parsed = bulkClassifySchema.safeParse(body);

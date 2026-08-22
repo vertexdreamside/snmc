@@ -38,12 +38,13 @@ export default async function ElectionDetailPage({ params }: { params: { id: str
   const nurseCandidates = (candidates ?? []).filter((c) => c.category === "Nurse");
   const midwifeCandidates = (candidates ?? []).filter((c) => c.category === "Midwife");
 
-  // Per-candidate tallies are withheld while a round is open — only overall
-  // participation count is shown live (Section 6: "view real-time voting
-  // participation (not vote content) during an open round"). Revealing
-  // standings mid-vote would be a real integrity problem, not just a UI
-  // choice.
-  const tallyVisible = election.status === "Round 1 Closed" || election.status === "Round 2 Closed" || election.status === "Completed";
+  // Per-candidate tallies are withheld while the ballot is open — only
+  // overall participation count is shown live (Section 6: "view real-time
+  // voting participation (not vote content) during an open round"). Round
+  // 1 (Nomination) has no votes to tally at all — the ballot, and
+  // therefore any tally, only exists in Round 2 (Election), so this only
+  // unlocks once that round closes.
+  const tallyVisible = election.status === "Election Closed" || election.status === "Completed";
 
   return (
     <div className="max-w-3xl space-y-6">

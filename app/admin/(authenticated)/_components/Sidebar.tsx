@@ -6,15 +6,24 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { NAV_GROUPS } from "./nav-items";
-import type { AdminRole } from "@/lib/types/database";
+import type { AdminPermission } from "@/lib/types/database";
 
-export function Sidebar({ fullName, role }: { fullName: string | null; role: AdminRole }) {
+interface SidebarProps {
+  fullName: string | null;
+  role: string;
+  fullAccess: boolean;
+  permissions: Record<AdminPermission, boolean>;
+}
+
+export function Sidebar({ fullName, role, fullAccess, permissions }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
   const visibleGroups = NAV_GROUPS.map((group) => ({
     ...group,
-    items: group.items.filter((item) => !item.roles || item.roles.includes(role)),
+    items: group.items.filter(
+      (item) => !item.permissions || fullAccess || item.permissions.some((p) => permissions[p])
+    ),
   })).filter((group) => group.items.length > 0);
 
   return (
@@ -42,7 +51,7 @@ export function Sidebar({ fullName, role }: { fullName: string | null; role: Adm
         {!collapsed && (
           <div className="min-w-0">
             <p className="font-body text-sm truncate">{fullName ?? "Staff"}</p>
-            <p className="font-body text-[11px] text-white/50 truncate">{role}</p>
+            <p className="font-body text-[11px] text-white/50 truncate">{fullAccess ? "Full Access" : role}</p>
           </div>
         )}
       </div>

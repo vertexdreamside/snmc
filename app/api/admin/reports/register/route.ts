@@ -10,7 +10,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ALLOWED_REGISTER_FIELDS } from "@/lib/reports";
 
 export async function GET(request: Request) {
-  await requireAdmin();
+  await requireAdmin(["reports"]);
 
   const { searchParams } = new URL(request.url);
   const requestedFields = (searchParams.get("fields") ?? "").split(",").filter(Boolean);

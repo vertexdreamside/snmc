@@ -5,7 +5,7 @@ import { DataExportClient } from "./DataExportClient";
 // pattern — bulk whole-table exports, distinct from the customizable
 // field-by-field report builder at /admin/reports.
 export default async function DataExportPage() {
-  await requireAdmin();
+  await requireAdmin(["reports"]);
   return (
     <div className="max-w-4xl">
       <DataExportClient />

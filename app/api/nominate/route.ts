@@ -10,6 +10,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
+import { SNMC_CONTACT } from "@/lib/components/ContactFooter";
 
 const nominateSchema = z.object({
   electionId: z.string().uuid(),
@@ -45,7 +46,7 @@ export async function POST(request: Request) {
   }
   if (!nominator.category_confirmed) {
     return NextResponse.json(
-      { ok: false, reason: "Your Nurse/Midwife category hasn't been confirmed by the Council yet. Please contact the Council office." },
+      { ok: false, reason: `Your Nurse/Midwife category hasn't been confirmed by the Council yet. Please contact the Council office at ${SNMC_CONTACT.phone} or ${SNMC_CONTACT.email}.` },
       { status: 403 }
     );
   }
@@ -59,7 +60,9 @@ export async function POST(request: Request) {
   }
 
   const { data: election } = await supabase.from("elections").select("status").eq("id", electionId).single();
-  if (!election || election.status !== "Planned") {
+  // Round 1 = nomination collection (per the historical Nomination Form
+  // and Ballot Form this digitizes — see build spec).
+  if (!election || election.status !== "Nomination Open") {
     return NextResponse.json({ ok: false, reason: "Nominations aren't currently open for this election." }, { status: 403 });
   }
 

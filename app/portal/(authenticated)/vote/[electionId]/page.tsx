@@ -17,8 +17,12 @@ export default async function VotePage({ params }: { params: { electionId: strin
     return <EmptyState message="Election not found." backHref="/portal" backLabel="← Back to portal" />;
   }
 
-  const round = election.status === "Round 2 Open" ? 2 : 1;
-  const isOpen = election.status === "Round 1 Open" || election.status === "Round 2 Open";
+  // Round 1 is nomination-only (see /portal/nominate). Round 2 is the
+  // actual election vote on the shortlisted nominees — the digitized
+  // equivalent of the historical Ballot Paper. There's a single voting
+  // round in this model, not "vote in either round."
+  const round = 2;
+  const isOpen = election.status === "Election Open";
 
   if (!isOpen) {
     return (
@@ -61,9 +65,7 @@ export default async function VotePage({ params }: { params: { electionId: strin
   return (
     <div className="max-w-xl mx-auto space-y-6">
       <div>
-        <h1 className="font-display text-2xl text-council-navy">
-          Ballot — {election.term_label} (Round {round})
-        </h1>
+        <h1 className="font-display text-2xl text-council-navy">Election Ballot — {election.term_label}</h1>
         <p className="font-body text-sm text-council-ink/60 mt-1">
           The following candidates have been shortlisted for election to the Council.
         </p>

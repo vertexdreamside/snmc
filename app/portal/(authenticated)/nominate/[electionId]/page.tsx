@@ -19,7 +19,9 @@ export default async function NominatePage({ params }: { params: { electionId: s
   if (!election) {
     return <EmptyState message="Election not found." backHref="/portal" backLabel="← Back to portal" />;
   }
-  if (election.status !== "Planned") {
+  // Round 1 = nomination collection, per the historical process. Round 2
+  // is the actual election vote on the shortlisted nominees.
+  if (election.status !== "Nomination Open") {
     return (
       <EmptyState
         message={`Nominations for ${election.term_label} are not currently open.`}

@@ -18,21 +18,22 @@ const DATASETS: DatasetInfo[] = [
     label: "Nurses & Midwives Register",
     description: "Full register — registration numbers, category, status, employment details.",
     icon: Users,
-    color: "#1E7D4F",
+    color: "#0B1F3A", // council-navy
   },
   {
     key: "candidates",
     label: "Election Candidates",
     description: "All nominated and shortlisted candidates across every election round.",
     icon: Vote,
-    color: "#7F77DD",
+    color: "#17AEE0", // council-cyan
   },
   {
     key: "councillors",
     label: "Councillor Terms",
     description: "Current and past Council terms — elected and appointed members.",
     icon: Award,
-    color: "#17AEE0",
+    color: "#060D1A", // council-navyDeep — three tonal shades of the same
+    // brand family instead of an unrelated green/purple/cyan mix.
   },
 ];
 

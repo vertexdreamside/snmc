@@ -1,31 +1,47 @@
-import type { Metadata } from "next";
-import "./globals.css";
+import Image from "next/image";
+import Link from "next/link";
+import { requirePortalUser } from "@/lib/auth/guards";
 
-// Fonts loaded via a plain <link> tag in the <head> below, not
-// next/font/google. next/font fetches font files at BUILD time on
-// Vercel's own servers — a build log showed fonts.gstatic.com requests
-// failing there, which would make the whole deploy depend on Google's
-// CDN being reachable from Vercel's build machine at that exact moment.
-// A runtime <link> tag instead loads fonts in the visitor's own browser,
-// same as a plain HTML site — slightly less optimized than next/font,
-// but it can never fail the build.
-export const metadata: Metadata = {
-  title: "SNMC — Seychelles Nurses & Midwives Council",
-  description: "Council voting, registration, and licence verification platform.",
-};
+// Forces this route (and everything nested under it) to render fresh on
+// every single request, with zero caching at any layer — Vercel's edge,
+// Next.js's Data/Full Route Cache, none of it. Added after seeing a
+// request return a real 200 with only middleware's log line present and
+// no log line from requirePortalUser() itself, which is only explainable
+// if the page's actual server code never re-ran — i.e. a cached response
+// being replayed. cookies() usage should already imply this automatically,
+// but that inference didn't seem to be taking effect reliably here, so
+// it's now stated explicitly rather than left implicit.
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function PortalLayout({ children }: { children: React.ReactNode }) {
+  const person = await requirePortalUser();
+
   return (
-    <html lang="en">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Inter:wght@400;500;600&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body>{children}</body>
-    </html>
+    <div className="min-h-screen">
+      <header className="bg-council-navy text-white px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3">
+            <Image src="/snmc-emblem.png" alt="" width={28} height={28} aria-hidden="true" />
+            <span className="font-display">SNMC — Nurse / Midwife Portal</span>
+          </div>
+          <nav className="hidden sm:flex gap-4 font-body text-sm text-white/70">
+            <Link href="/portal" className="hover:text-white">
+              Home
+            </Link>
+            <Link href="/portal/profile" className="hover:text-white">
+              Profile
+            </Link>
+            <Link href="/portal/results" className="hover:text-white">
+              Results
+            </Link>
+          </nav>
+        </div>
+        <span className="font-body text-sm text-white/70">
+          {person.first_name} {person.last_name}
+        </span>
+      </header>
+      <div className="p-6">{children}</div>
+    </div>
   );
 }

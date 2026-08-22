@@ -13,7 +13,7 @@ const updateSchema = z.object({
 });
 
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
-  const admin = await requireAdmin(["Registration Officer", "Supervisor", "Manager", "Super Admin"]);
+  const admin = await requireAdmin(["register"]);
 
   const body = await request.json();
   const parsed = updateSchema.safeParse(body);

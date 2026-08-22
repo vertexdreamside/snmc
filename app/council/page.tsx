@@ -21,6 +21,21 @@ export default async function CouncilHome() {
     .select("id, term_label, status")
     .eq("results_published", true);
 
+  // Pull the actual elected candidates for each published election —
+  // "published" should mean real results are visible, not just a status
+  // label with no content behind it.
+  const resultsByElection = await Promise.all(
+    (publishedElections ?? []).map(async (e) => {
+      const { data: elected } = await supabase
+        .from("candidates")
+        .select("category, people:person_id(first_name, last_name)")
+        .eq("election_id", e.id)
+        .eq("status", "Elected")
+        .order("category");
+      return { election: e, elected: elected ?? [] };
+    })
+  );
+
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <section className="bg-white rounded-card border border-council-navy/10 p-6">
@@ -59,12 +74,27 @@ export default async function CouncilHome() {
 
       <section className="bg-white rounded-card border border-council-navy/10 p-6">
         <h2 className="font-display text-lg text-council-navy mb-3">Published Election Results</h2>
-        {publishedElections && publishedElections.length > 0 ? (
-          <ul className="font-body text-sm space-y-1">
-            {publishedElections.map((e) => (
-              <li key={e.id}>{e.term_label} — results published</li>
+        {resultsByElection.length > 0 ? (
+          <div className="space-y-4">
+            {resultsByElection.map(({ election, elected }) => (
+              <div key={election.id}>
+                <p className="font-body text-sm font-medium text-council-navy mb-1">{election.term_label}</p>
+                {elected.length > 0 ? (
+                  <ul className="font-body text-sm text-council-ink/70 space-y-1 pl-3">
+                    {elected.map((c: any, i: number) => (
+                      <li key={i}>
+                        {c.people?.first_name} {c.people?.last_name} — {c.category}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="font-body text-sm text-council-ink/50 pl-3">
+                    Published, but no candidates are marked "Elected" yet.
+                  </p>
+                )}
+              </div>
             ))}
-          </ul>
+          </div>
         ) : (
           <p className="font-body text-sm text-council-ink/60">No results published yet.</p>
         )}

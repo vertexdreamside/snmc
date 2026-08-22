@@ -5,10 +5,10 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 
 const ELECTION_STATUSES = [
   "Planned",
-  "Round 1 Open",
-  "Round 1 Closed",
-  "Round 2 Open",
-  "Round 2 Closed",
+  "Nomination Open",
+  "Nomination Closed",
+  "Election Open",
+  "Election Closed",
   "Completed",
 ] as const;
 
@@ -18,7 +18,7 @@ const updateSchema = z.object({
 });
 
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
-  const admin = await requireAdmin(["Election Officer", "Manager", "Super Admin"]);
+  const admin = await requireAdmin(["elections"]);
   const body = await request.json();
   const parsed = updateSchema.safeParse(body);
   if (!parsed.success) {

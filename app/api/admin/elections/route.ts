@@ -3,25 +3,45 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/guards";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
-const createSchema = z.object({ termLabel: z.string().min(1) });
+const ELECTION_STATUSES = [
+  "Planned",
+  "Nomination Open",
+  "Nomination Closed",
+  "Election Open",
+  "Election Closed",
+  "Completed",
+] as const;
 
-export async function POST(request: Request) {
-  await requireAdmin(["Election Officer", "Manager", "Super Admin"]);
+const updateSchema = z.object({
+  status: z.enum(ELECTION_STATUSES).optional(),
+  resultsPublished: z.boolean().optional(),
+});
+
+export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+  const admin = await requireAdmin(["elections"]);
   const body = await request.json();
-  const parsed = createSchema.safeParse(body);
+  const parsed = updateSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ ok: false, reason: "Invalid input." }, { status: 400 });
   }
 
   const supabase = createServiceRoleClient();
-  const { data, error } = await supabase
-    .from("elections")
-    .insert({ term_label: parsed.data.termLabel, status: "Planned" })
-    .select("id")
-    .single();
+  const update: Record<string, unknown> = {};
+  if (parsed.data.status) update.status = parsed.data.status;
+  if (parsed.data.resultsPublished !== undefined) update.results_published = parsed.data.resultsPublished;
 
-  if (error || !data) {
-    return NextResponse.json({ ok: false, reason: "Could not create election." }, { status: 500 });
+  const { error } = await supabase.from("elections").update(update).eq("id", params.id);
+  if (error) {
+    return NextResponse.json({ ok: false, reason: "Update failed." }, { status: 500 });
   }
-  return NextResponse.json({ ok: true, id: data.id });
+
+  await supabase.from("audit_log").insert({
+    actor_id: admin.id,
+    action: "admin_updated_election",
+    target_table: "elections",
+    target_id: params.id,
+    details: update,
+  });
+
+  return NextResponse.json({ ok: true });
 }

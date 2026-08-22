@@ -3,21 +3,23 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-const ROLES = [
-  "Super Admin",
-  "Manager",
-  "Supervisor",
-  "Registration Officer",
-  "Election Officer",
-  "Minister",
-  "Read Only",
-] as const;
-
 interface AdminUserRow {
   id: string;
   full_name: string | null;
-  role: string;
+  role: string | null;
+  can_view_reports: boolean;
+  can_manage_register: boolean;
+  can_manage_elections: boolean;
+  can_manage_admin_users: boolean;
+  full_access: boolean;
 }
+
+const PERMISSION_FIELDS = [
+  { key: "can_view_reports", label: "Reports" },
+  { key: "can_manage_register", label: "Register" },
+  { key: "can_manage_elections", label: "Elections" },
+  { key: "can_manage_admin_users", label: "Admin Users" },
+] as const;
 
 export function AdminUsersManager({ users, currentAdminId }: { users: AdminUserRow[]; currentAdminId: string }) {
   const router = useRouter();
@@ -26,12 +28,17 @@ export function AdminUsersManager({ users, currentAdminId }: { users: AdminUserR
     <div className="space-y-6">
       <InviteForm onDone={() => router.refresh()} />
 
-      <div className="bg-white rounded-card border border-council-navy/10 overflow-hidden">
+      <div className="bg-white rounded-card border border-council-navy/10 overflow-x-auto">
         <table className="w-full font-body text-sm">
           <thead className="bg-council-cream text-council-ink/60 text-left">
             <tr>
-              <th className="px-4 py-3">Name</th>
-              <th className="px-4 py-3">Role</th>
+              <th className="px-4 py-3">Name / Title</th>
+              {PERMISSION_FIELDS.map((f) => (
+                <th key={f.key} className="px-3 py-3 text-center">
+                  {f.label}
+                </th>
+              ))}
+              <th className="px-3 py-3 text-center">Full Access</th>
               <th className="px-4 py-3 w-40"></th>
             </tr>
           </thead>
@@ -41,7 +48,7 @@ export function AdminUsersManager({ users, currentAdminId }: { users: AdminUserR
             ))}
             {users.length === 0 && (
               <tr>
-                <td colSpan={3} className="px-4 py-8 text-center text-council-ink/50">
+                <td colSpan={7} className="px-4 py-8 text-center text-council-ink/50">
                   No admin users yet.
                 </td>
               </tr>
@@ -49,71 +56,91 @@ export function AdminUsersManager({ users, currentAdminId }: { users: AdminUserR
           </tbody>
         </table>
       </div>
+      <p className="font-body text-xs text-council-ink/40">
+        "Title" is a free-text label only (e.g. "Election Officer," "Treasurer") — it doesn't grant access on its
+        own. The checkboxes are what actually control what a person can do; define whichever combination fits
+        them, or toggle Full Access for unrestricted control.
+      </p>
     </div>
   );
 }
 
 function UserRow({ user, isSelf, onChanged }: { user: AdminUserRow; isSelf: boolean; onChanged: () => void }) {
-  const [role, setRole] = useState(user.role);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
   const [resetMessage, setResetMessage] = useState<string | null>(null);
+  const [title, setTitle] = useState(user.role ?? "");
 
-  async function handleRoleChange(newRole: string) {
-    setRole(newRole);
-    setBusy(true);
+  async function patchField(field: string, value: boolean | string) {
+    setBusy(field);
     await fetch(`/api/admin/users/${user.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ role: newRole }),
+      body: JSON.stringify({ field, value }),
     });
-    setBusy(false);
+    setBusy(null);
     onChanged();
   }
 
   async function handleRemove() {
     if (!confirm(`Remove admin access for ${user.full_name ?? "this user"}?`)) return;
-    setBusy(true);
+    setBusy("remove");
     await fetch(`/api/admin/users/${user.id}`, { method: "DELETE" });
-    setBusy(false);
+    setBusy(null);
     onChanged();
   }
 
   async function handleResetPassword() {
-    setBusy(true);
+    setBusy("reset");
     setResetMessage(null);
     const res = await fetch(`/api/admin/users/${user.id}/reset-password`, { method: "POST" });
     const data = await res.json();
-    setBusy(false);
+    setBusy(null);
     setResetMessage(data.ok ? `Reset email sent to ${data.email}.` : data.reason ?? "Could not send reset email.");
   }
 
   return (
-    <tr>
+    <tr className={user.full_access ? "bg-council-cyan/5" : ""}>
       <td className="px-4 py-3">
-        {user.full_name ?? "—"} {isSelf && <span className="text-council-ink/40 text-xs">(you)</span>}
-        {resetMessage && <p className="text-xs text-council-ink/50 mt-0.5">{resetMessage}</p>}
+        <div className="font-medium">
+          {user.full_name ?? "—"} {isSelf && <span className="text-council-ink/40 text-xs">(you)</span>}
+        </div>
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          onBlur={() => title !== (user.role ?? "") && patchField("role", title)}
+          placeholder="Title (optional)"
+          className="mt-1 text-xs text-council-ink/60 border-b border-transparent hover:border-council-navy/20 focus:border-council-cyan outline-none bg-transparent w-full"
+        />
+        {resetMessage && <p className="text-xs text-council-ink/50 mt-1">{resetMessage}</p>}
+      </td>
+      {PERMISSION_FIELDS.map((f) => (
+        <td key={f.key} className="px-3 py-3 text-center">
+          <input
+            type="checkbox"
+            checked={user[f.key]}
+            disabled={busy !== null || user.full_access}
+            onChange={(e) => patchField(f.key, e.target.checked)}
+            className="accent-council-navy w-4 h-4"
+          />
+        </td>
+      ))}
+      <td className="px-3 py-3 text-center">
+        <input
+          type="checkbox"
+          checked={user.full_access}
+          disabled={busy !== null || isSelf}
+          onChange={(e) => patchField("full_access", e.target.checked)}
+          className="accent-council-cyan w-4 h-4"
+        />
       </td>
       <td className="px-4 py-3">
-        <select
-          value={role}
-          onChange={(e) => handleRoleChange(e.target.value)}
-          disabled={busy || isSelf}
-          className="border border-council-navy/20 rounded-card px-2 py-1 font-body text-sm disabled:opacity-60"
-        >
-          {ROLES.map((r) => (
-            <option key={r} value={r}>
-              {r}
-            </option>
-          ))}
-        </select>
-      </td>
-      <td className="px-4 py-3">
-        <div className="flex gap-3">
-          <button onClick={handleResetPassword} disabled={busy} className="text-council-navy text-xs font-body underline disabled:opacity-60">
+        <div className="flex flex-col gap-1 items-start">
+          <button onClick={handleResetPassword} disabled={busy !== null} className="text-council-navy text-xs font-body underline disabled:opacity-60">
             Reset Password
           </button>
           {!isSelf && (
-            <button onClick={handleRemove} disabled={busy} className="text-status-closed text-xs font-body underline disabled:opacity-60">
+            <button onClick={handleRemove} disabled={busy !== null} className="text-status-closed text-xs font-body underline disabled:opacity-60">
               Remove
             </button>
           )}
@@ -126,9 +153,20 @@ function UserRow({ user, isSelf, onChanged }: { user: AdminUserRow; isSelf: bool
 function InviteForm({ onDone }: { onDone: () => void }) {
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
-  const [role, setRole] = useState<(typeof ROLES)[number]>("Read Only");
+  const [title, setTitle] = useState("");
+  const [permissions, setPermissions] = useState({
+    canViewReports: false,
+    canManageRegister: false,
+    canManageElections: false,
+    canManageAdminUsers: false,
+    fullAccess: false,
+  });
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+
+  function togglePermission(key: keyof typeof permissions) {
+    setPermissions((p) => ({ ...p, [key]: !p[key] }));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -137,7 +175,7 @@ function InviteForm({ onDone }: { onDone: () => void }) {
     const res = await fetch("/api/admin/users", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, fullName, role }),
+      body: JSON.stringify({ email, fullName, title, ...permissions }),
     });
     const data = await res.json();
     setBusy(false);
@@ -145,6 +183,14 @@ function InviteForm({ onDone }: { onDone: () => void }) {
       setMessage(`Invitation sent to ${email}.`);
       setEmail("");
       setFullName("");
+      setTitle("");
+      setPermissions({
+        canViewReports: false,
+        canManageRegister: false,
+        canManageElections: false,
+        canManageAdminUsers: false,
+        fullAccess: false,
+      });
       onDone();
     } else {
       setMessage(data.reason ?? "Could not send invitation.");
@@ -153,7 +199,7 @@ function InviteForm({ onDone }: { onDone: () => void }) {
 
   return (
     <form onSubmit={handleSubmit} className="bg-white rounded-card border border-council-navy/10 p-6 space-y-4">
-      <h2 className="font-display text-base text-council-navy">Invite a new admin user</h2>
+      <h2 className="font-display text-base text-council-navy">Add a Council member</h2>
       <div className="grid sm:grid-cols-3 gap-3">
         <input
           type="text"
@@ -171,18 +217,44 @@ function InviteForm({ onDone }: { onDone: () => void }) {
           onChange={(e) => setEmail(e.target.value)}
           className="border border-council-navy/20 rounded-card px-3 py-2 font-body text-sm focus:outline-none focus:ring-2 focus:ring-council-cyan"
         />
-        <select
-          value={role}
-          onChange={(e) => setRole(e.target.value as (typeof ROLES)[number])}
-          className="border border-council-navy/20 rounded-card px-3 py-2 font-body text-sm"
-        >
-          {ROLES.map((r) => (
-            <option key={r} value={r}>
-              {r}
-            </option>
-          ))}
-        </select>
+        <input
+          type="text"
+          placeholder="Title (optional, e.g. Treasurer)"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          className="border border-council-navy/20 rounded-card px-3 py-2 font-body text-sm focus:outline-none focus:ring-2 focus:ring-council-cyan"
+        />
       </div>
+
+      <div>
+        <p className="font-body text-xs text-council-ink/60 mb-2">
+          Define this person's privileges — tick whichever combination fits, or grant Full Access for
+          unrestricted control.
+        </p>
+        <div className="flex flex-wrap gap-4">
+          <label className="flex items-center gap-2 font-body text-sm">
+            <input type="checkbox" checked={permissions.canViewReports} onChange={() => togglePermission("canViewReports")} disabled={permissions.fullAccess} className="accent-council-navy" />
+            Reports
+          </label>
+          <label className="flex items-center gap-2 font-body text-sm">
+            <input type="checkbox" checked={permissions.canManageRegister} onChange={() => togglePermission("canManageRegister")} disabled={permissions.fullAccess} className="accent-council-navy" />
+            Register
+          </label>
+          <label className="flex items-center gap-2 font-body text-sm">
+            <input type="checkbox" checked={permissions.canManageElections} onChange={() => togglePermission("canManageElections")} disabled={permissions.fullAccess} className="accent-council-navy" />
+            Elections
+          </label>
+          <label className="flex items-center gap-2 font-body text-sm">
+            <input type="checkbox" checked={permissions.canManageAdminUsers} onChange={() => togglePermission("canManageAdminUsers")} disabled={permissions.fullAccess} className="accent-council-navy" />
+            Admin Users
+          </label>
+          <label className="flex items-center gap-2 font-body text-sm font-medium text-council-navy">
+            <input type="checkbox" checked={permissions.fullAccess} onChange={() => togglePermission("fullAccess")} className="accent-council-cyan" />
+            Full Access
+          </label>
+        </div>
+      </div>
+
       <button
         type="submit"
         disabled={busy}

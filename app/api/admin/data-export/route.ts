@@ -10,7 +10,7 @@ import { createClient } from "@/lib/supabase/server";
 const DATASETS = ["register", "candidates", "councillors"] as const;
 
 export async function GET(request: Request) {
-  await requireAdmin();
+  await requireAdmin(["reports"]);
 
   const { searchParams } = new URL(request.url);
   const dataset = searchParams.get("dataset");

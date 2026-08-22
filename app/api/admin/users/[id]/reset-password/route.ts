@@ -8,7 +8,7 @@ import { requireAdmin } from "@/lib/auth/guards";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
-  const actor = await requireAdmin(["Super Admin"]);
+  const actor = await requireAdmin(["users"]);
   const supabase = createServiceRoleClient();
 
   const { data: adminUser, error: lookupError } = await supabase
