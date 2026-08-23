@@ -2,24 +2,40 @@
 // 1.1 of the build spec: a Nurse/Midwife session must never reach /admin,
 // an admin session must never reach /portal or /council as that role, etc.
 //
-// This checks *session presence and role*, not full authorization — RLS
-// policies in Supabase remain the source of truth for data access. This
-// layer exists to redirect people to the right login and to fail closed on
-// obviously wrong combinations before a page even renders.
+// MIDDLEWARE-DIAG-V3 — this version exists specifically to resolve a
+// contradiction: a live network capture showed /portal/login and
+// /admin/login self-redirecting (307 to the exact same path) on the
+// currently-deployed commit, even though the previous version of this
+// file's logic — read directly from the same live commit — provably
+// excludes those two paths from ever triggering a redirect, on paper.
+// Rather than keep re-reasoning about logic that already looks correct,
+// this version makes it structurally impossible: the two login paths are
+// checked and returned FIRST, before any other code in this file runs at
+// all, and every request logs a version tag so Vercel's Runtime Logs can
+// confirm definitively whether this exact code is what's actually
+// executing — which is the one thing we haven't yet been able to verify
+// directly, as opposed to inferring from source review.
 //
 // Route groups: app/portal/(authenticated)/ and app/admin/(authenticated)/
 // hold every page that requires a session; app/portal/login and
 // app/admin/login sit outside those groups so their own layout never
 // requires a session that logging in is meant to establish.
-//
-// Rewritten to use the getAll/setAll cookie pattern — see the comment in
-// lib/supabase/server.ts for why the previous get/set/remove pattern was
-// replaced.
 
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  console.log("MIDDLEWARE-DIAG-V3", { pathname, url: request.url });
+
+  // Hard bypass, checked before anything else touches this request —
+  // these two paths must NEVER be redirected by this file, full stop.
+  if (pathname === "/portal/login" || pathname === "/admin/login") {
+    console.log("MIDDLEWARE-DIAG-V3 hard-bypass hit, returning next() immediately", { pathname });
+    return NextResponse.next();
+  }
+
   let response = NextResponse.next({ request: { headers: request.headers } });
 
   const supabase = createServerClient(
@@ -39,35 +55,13 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  const { pathname } = request.nextUrl;
-  const relevantPath = pathname.startsWith("/portal") || pathname.startsWith("/admin") || pathname.startsWith("/council");
-
   const {
     data: { user },
-    error: getUserError,
   } = await supabase.auth.getUser();
 
-  // TEMPORARY diagnostic logging (visible in Vercel Runtime Logs, not to
-  // the browser). A cookie confirmed present, correctly domained, and
-  // correctly formatted still resulted in this route treating the visitor
-  // as signed out — so the failure is specifically inside this
-  // getUser() call, not in whether a cookie exists. This logs the actual
-  // error Supabase's SDK returns rather than the account of "no error,
-  // just no user" we've assumed until now.
-  if (relevantPath) {
-    console.log("MIDDLEWARE AUTH CHECK", {
-      pathname,
-      incomingCookieNames: request.cookies.getAll().map((c) => c.name),
-      hasUser: !!user,
-      getUserErrorMessage: getUserError?.message,
-      getUserErrorStatus: (getUserError as any)?.status,
-      getUserErrorName: getUserError?.name,
-    });
-  }
-
-  const isAdminRoute = pathname.startsWith("/admin") && pathname !== "/admin/login";
+  const isAdminRoute = pathname.startsWith("/admin");
   const isCouncilRoute = pathname.startsWith("/council");
-  const isPortalRoute = pathname.startsWith("/portal") && pathname !== "/portal/login";
+  const isPortalRoute = pathname.startsWith("/portal");
 
   if (!user && (isAdminRoute || isCouncilRoute || isPortalRoute)) {
     const loginPath = isAdminRoute ? "/admin/login" : "/portal/login";
@@ -75,12 +69,6 @@ export async function middleware(request: NextRequest) {
     redirectUrl.searchParams.set("next", pathname);
     return NextResponse.redirect(redirectUrl);
   }
-
-  // Role-specific checks happen server-side in each route group's layout
-  // (see app/admin/(authenticated)/layout.tsx, app/council/layout.tsx)
-  // because they need a database lookup (admin_users / councillor_terms)
-  // that's cheap there but wasteful to repeat on every middleware
-  // invocation.
 
   return response;
 }
