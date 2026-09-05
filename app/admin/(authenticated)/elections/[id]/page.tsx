@@ -9,6 +9,8 @@ import { VoterParticipation } from "./VoterParticipation";
 import { ElectionMonitor } from "./ElectionMonitor";
 import { ExtendElectionForm } from "./ExtendElectionForm";
 import { ElectionSummary } from "./ElectionSummary";
+import { IntegrityCheck } from "./IntegrityCheck";
+import { DisputeRecountPanel } from "./DisputeRecountPanel";
 
 export default async function ElectionDetailPage({ params }: { params: { id: string } }) {
   await requireAdmin();
@@ -44,6 +46,18 @@ export default async function ElectionDetailPage({ params }: { params: { id: str
   const nurseCandidates = (candidates ?? []).filter((c) => c.category === "Nurse");
   const midwifeCandidates = (candidates ?? []).filter((c) => c.category === "Midwife");
 
+  const candidateNames = new Map<string, string>();
+  for (const c of candidates ?? []) {
+    const p = Array.isArray(c.people) ? c.people[0] : c.people;
+    candidateNames.set(c.id, `${p?.first_name ?? ""} ${p?.last_name ?? ""}`.trim());
+  }
+
+  const { data: disputes } = await supabase
+    .from("election_disputes")
+    .select("id, category, reason, status, original_tally, recount_tally, recount_matches, resolution, resolution_notes, filed_at")
+    .eq("election_id", params.id)
+    .order("filed_at", { ascending: false });
+
   // Per-candidate tallies now go through the shared isTallyVisible helper
   // (Section 9 of the confirmed rules) — includes the admin-configurable
   // live_results_visible toggle, not just "closed or completed."
@@ -73,6 +87,13 @@ export default async function ElectionDetailPage({ params }: { params: { id: str
           most — after the election is actually done. */}
       {(election.status === "Election Open" || election.status === "Election Closed" || election.status === "Completed") && (
         <ElectionMonitor election={election} />
+      )}
+
+      {(election.status === "Election Closed" || election.status === "Completed") && (
+        <>
+          <IntegrityCheck electionId={election.id} round={2} />
+          <DisputeRecountPanel electionId={election.id} disputes={disputes ?? []} candidateNames={candidateNames} />
+        </>
       )}
 
       {election.status === "Completed" && (
