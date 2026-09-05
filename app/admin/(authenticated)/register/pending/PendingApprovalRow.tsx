@@ -18,14 +18,28 @@ function display(v: unknown): string {
   return String(v);
 }
 
-export function PendingApprovalRow({ person, change }: { person: { id: string; first_name: string; last_name: string; nurse_reg_no: string | null; midwife_reg_no: string | null }; change?: { changes: Record<string, { from: unknown; to: unknown }>; at: string } }) {
+export function PendingApprovalRow({
+  person,
+  change,
+}: {
+  person: { id: string; first_name: string; last_name: string; nurse_reg_no: string | null; midwife_reg_no: string | null };
+  change?: { changes: Record<string, { from: unknown; to: unknown }>; reason?: string; at: string };
+}) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [comment, setComment] = useState("");
+  const [pendingAction, setPendingAction] = useState<"Approved" | "Rejected" | null>(null);
 
-  async function setStatus(status: "Approved" | "Rejected") {
+  async function confirmStatus(status: "Approved" | "Rejected") {
     setBusy(true);
-    await fetch(`/api/admin/people/${person.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: status === "Approved" ? "approve" : "reject" }) });
+    await fetch(`/api/admin/people/${person.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: status === "Approved" ? "approve" : "reject", comment: comment || undefined }),
+    });
     setBusy(false);
+    setPendingAction(null);
+    setComment("");
     router.refresh();
   }
 
@@ -34,9 +48,16 @@ export function PendingApprovalRow({ person, change }: { person: { id: string; f
   return (
     <div className="bg-white rounded-card border border-council-navy/10 p-4">
       <div className="flex items-center justify-between mb-2">
-        <Link href={`/admin/register/${person.id}`} className="font-body text-sm font-medium text-council-navy underline">{person.first_name} {person.last_name}</Link>
+        <Link href={`/admin/register/${person.id}`} className="font-body text-sm font-medium text-council-navy underline">
+          {person.first_name} {person.last_name}
+        </Link>
         <span className="font-body text-xs text-council-ink/50">{person.nurse_reg_no || person.midwife_reg_no || "—"}</span>
       </div>
+
+      {change?.reason && (
+        <p className="font-body text-xs text-council-ink/60 italic mb-2">"{change.reason}"</p>
+      )}
+
       {changeEntries.length > 0 ? (
         <div className="bg-council-cream rounded-card p-3 mb-3 space-y-1">
           {changeEntries.map(([field, { from, to }]) => (
@@ -49,10 +70,37 @@ export function PendingApprovalRow({ person, change }: { person: { id: string; f
       ) : (
         <p className="font-body text-xs text-council-ink/40 mb-3 italic">No self-service change on file — may be a new import or an admin-side flag.</p>
       )}
-      <div className="flex gap-2">
-        <button onClick={() => setStatus("Approved")} disabled={busy} className="text-xs bg-status-active text-white rounded-card px-3 py-1.5 disabled:opacity-60">Approve</button>
-        <button onClick={() => setStatus("Rejected")} disabled={busy} className="text-xs border border-status-closed/40 text-status-closed rounded-card px-3 py-1.5 disabled:opacity-60">Reject</button>
-      </div>
+
+      {pendingAction ? (
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            placeholder={`Comment (visible to the person) — why you're ${pendingAction === "Approved" ? "approving" : "rejecting"} this`}
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            className="flex-1 text-xs border border-council-navy/20 rounded-card px-2 py-1.5"
+          />
+          <button
+            onClick={() => confirmStatus(pendingAction)}
+            disabled={busy}
+            className={`text-xs rounded-card px-3 py-1.5 text-white disabled:opacity-60 ${pendingAction === "Approved" ? "bg-status-active" : "bg-status-closed"}`}
+          >
+            Confirm {pendingAction}
+          </button>
+          <button onClick={() => setPendingAction(null)} className="text-xs text-council-ink/50 underline">
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <div className="flex gap-2">
+          <button onClick={() => setPendingAction("Approved")} disabled={busy} className="text-xs bg-status-active text-white rounded-card px-3 py-1.5 disabled:opacity-60">
+            Approve
+          </button>
+          <button onClick={() => setPendingAction("Rejected")} disabled={busy} className="text-xs border border-status-closed/40 text-status-closed rounded-card px-3 py-1.5 disabled:opacity-60">
+            Reject
+          </button>
+        </div>
+      )}
     </div>
   );
 }

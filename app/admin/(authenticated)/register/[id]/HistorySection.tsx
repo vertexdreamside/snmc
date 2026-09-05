@@ -73,6 +73,12 @@ export function HistorySection({ entries }: { entries: HistoryEntry[] }) {
                     ))}
                   </div>
                 )}
+                {entry.details?.reason ? (
+                  <p className="font-body text-xs text-council-ink/50 italic mt-1">Reason given: "{String(entry.details.reason)}"</p>
+                ) : null}
+                {entry.details?.comment ? (
+                  <p className="font-body text-xs text-council-ink/50 italic mt-1">Review comment: "{String(entry.details.comment)}"</p>
+                ) : null}
               </li>
             );
           })}

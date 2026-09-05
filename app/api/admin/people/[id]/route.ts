@@ -11,6 +11,7 @@ import { validateLicenseFormat } from "@/lib/licenses";
 const updateSchema = z.object({
   action: z.enum(["approve", "reject", "mark_deceased", "edit_fields"]),
   fields: z.record(z.string()).optional(),
+  comment: z.string().optional(),
 });
 
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
@@ -98,7 +99,17 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     action,
     target_table: "people",
     target_id: params.id,
-    details: parsed.data.action === "edit_fields" ? update : undefined,
+    // Review comment is visible to the person on their own profile page
+    // (see app/portal/(authenticated)/profile/page.tsx) — a rejected
+    // edit with no explanation gives someone no way to know what to fix.
+    // If this should be admin-only instead, that display point is the
+    // one place to change.
+    details:
+      parsed.data.action === "edit_fields"
+        ? update
+        : parsed.data.comment
+          ? { comment: parsed.data.comment }
+          : undefined,
   });
 
   return NextResponse.json({ ok: true });

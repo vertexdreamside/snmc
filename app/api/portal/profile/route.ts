@@ -49,6 +49,7 @@ const profileUpdateSchema = z.object({
   nurse_license_expiry: z.string().optional().nullable(),
   midwife_license_no: z.string().optional().default(""),
   midwife_license_expiry: z.string().optional().nullable(),
+  reasonForChange: z.string().optional(),
 });
 
 export async function PATCH(request: Request) {
@@ -90,9 +91,12 @@ export async function PATCH(request: Request) {
 
   // Normalize empty-string date inputs to null rather than writing "" into
   // a date column, and turn away blank optional strings so they store as
-  // null instead of an empty string.
+  // null instead of an empty string. reasonForChange is destructured out
+  // here specifically — it's not a people column, and left in `cleaned`
+  // it would get spread straight into the update() call below and error.
+  const { reasonForChange, ...dataFields } = parsed.data;
   const cleaned = {
-    ...parsed.data,
+    ...dataFields,
     date_of_birth: parsed.data.date_of_birth || null,
     nurse_license_expiry: parsed.data.nurse_license_expiry || null,
     midwife_license_expiry: parsed.data.midwife_license_expiry || null,
@@ -131,7 +135,7 @@ export async function PATCH(request: Request) {
       action: "self_service_profile_update",
       target_table: "people",
       target_id: person.id,
-      details: { changes },
+      details: { changes, reason: reasonForChange || undefined },
     });
   }
 

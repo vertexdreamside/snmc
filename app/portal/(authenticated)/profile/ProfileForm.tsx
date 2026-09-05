@@ -24,6 +24,7 @@ export function ProfileForm({ person }: { person: Omit<Person, "nin" | "notes"> 
     nurse_license_expiry: person.nurse_license_expiry ?? "",
     midwife_license_no: person.midwife_license_no ?? "",
     midwife_license_expiry: person.midwife_license_expiry ?? "",
+    reasonForChange: "",
   });
   const [status, setStatus] = useState<"idle" | "saving" | "done" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -149,6 +150,22 @@ export function ProfileForm({ person }: { person: Omit<Person, "nin" | "notes"> 
           <Field label="Midwife Licence No." value={form.midwife_license_no} onChange={(v) => update("midwife_license_no", v)} />
           <Field label="Midwife Licence Expiry" type="date" value={form.midwife_license_expiry} onChange={(v) => update("midwife_license_expiry", v)} />
         </div>
+      </section>
+
+      <section className="bg-white rounded-card border border-council-navy/10 p-6">
+        <label className="block">
+          <span className="font-body text-sm text-council-ink/70 block mb-1">Reason for change (optional)</span>
+          <textarea
+            value={form.reasonForChange}
+            onChange={(e) => update("reasonForChange", e.target.value)}
+            placeholder="e.g. Changed employer after transfer to Anse Royale Community Clinic"
+            rows={2}
+            className="w-full border border-council-navy/20 rounded-card px-3 py-2 font-body text-sm focus:outline-none focus:ring-2 focus:ring-council-cyan"
+          />
+          <span className="font-body text-xs text-council-ink/40 mt-1 block">
+            Helps whoever reviews this understand why you're making the change.
+          </span>
+        </label>
       </section>
 
       {error && <p className="font-body text-sm text-status-closed">{error}</p>}

@@ -19,9 +19,9 @@ export default async function PendingApprovalPage() {
         .eq("action", "self_service_profile_update").in("target_id", personIds).order("created_at", { ascending: false })
     : { data: [] };
 
-  const latestChanges = new Map<string, { changes: Record<string, { from: unknown; to: unknown }>; at: string }>();
+  const latestChanges = new Map<string, { changes: Record<string, { from: unknown; to: unknown }>; reason?: string; at: string }>();
   for (const entry of auditEntries ?? []) {
-    if (!latestChanges.has(entry.target_id)) latestChanges.set(entry.target_id, { changes: entry.details?.changes ?? {}, at: entry.created_at });
+    if (!latestChanges.has(entry.target_id)) latestChanges.set(entry.target_id, { changes: entry.details?.changes ?? {}, reason: entry.details?.reason, at: entry.created_at });
   }
 
   return (
