@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PersonActions } from "./PersonActions";
 import { RecordManagementSection } from "./RecordManagementSection";
 import { categoryDisplay } from "@/lib/licenses";
+import { canManageRegister } from "@/lib/auth/permissions";
 import { LicenceDetailsSection } from "./LicenceDetailsSection";
 import { HistorySection } from "./HistorySection";
 
@@ -12,13 +13,13 @@ import { HistorySection } from "./HistorySection";
 // Midwife, and every Special Licence as rows in ONE table, not a
 // separate isolated section) — rather than one long flat field list.
 export default async function PersonDetailPage({ params }: { params: { id: string } }) {
-  await requireAdmin();
+  const admin = await requireAdmin();
   const supabase = createClient();
 
   const { data: person } = await supabase
     .from("people")
     .select(
-      "id, first_name, last_name, sex, date_of_birth, address_line1, address_line2, address_line3, phone_home, phone_mobile, nurse_reg_no, midwife_reg_no, professional_category, training_institute, employer, place_of_work, employment_sector, service_category, nurse_license_no, nurse_license_expiry, midwife_license_no, midwife_license_expiry, registration_status, is_active, is_deceased, profile_status, data_source"
+      "id, first_name, last_name, sex, date_of_birth, nin, address_line1, address_line2, address_line3, phone_home, phone_mobile, nurse_reg_no, midwife_reg_no, professional_category, training_institute, employer, place_of_work, employment_sector, service_category, nurse_license_no, nurse_license_expiry, midwife_license_no, midwife_license_expiry, registration_status, is_active, is_deceased, profile_status, data_source"
     )
     .eq("id", params.id)
     .single();
@@ -80,6 +81,7 @@ export default async function PersonDetailPage({ params }: { params: { id: strin
         <h2 className="font-display text-base text-council-navy mb-4">Personal Details</h2>
         <dl className="grid grid-cols-2 gap-y-3 font-body text-sm">
           <Field label="Sex" value={person.sex} />
+          {canManageRegister(admin) && <Field label="N.I.N" value={person.nin} />}
           <Field label="Date of Birth" value={person.date_of_birth} />
           <Field label="Address" value={[person.address_line1, person.address_line2, person.address_line3].filter(Boolean).join(", ")} />
           <Field label="Mobile" value={person.phone_mobile} />
