@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ContactFooter } from "@/lib/components/ContactFooter";
 
@@ -9,10 +9,11 @@ import { ContactFooter } from "@/lib/components/ContactFooter";
 // separate from the Nurse/Midwife reg-no/NIN/OTP flow (Section 1.1).
 export default function AdminLoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(searchParams.get("disabled") ? "This account has been disabled. Contact a Super Admin if you believe this is an error." : null);
   const [loading, setLoading] = useState(false);
 
   async function logAttempt(outcome: "success" | "failure") {

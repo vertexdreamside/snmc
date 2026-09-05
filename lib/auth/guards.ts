@@ -62,7 +62,7 @@ const PERMISSION_COLUMN: Record<AdminPermission, string> = {
 };
 
 const ADMIN_SELECT =
-  "id, auth_user_id, role, full_name, can_view_reports, can_manage_register, can_manage_elections, can_manage_admin_users, full_access";
+  "id, auth_user_id, role, full_name, can_view_reports, can_manage_register, can_manage_elections, can_manage_admin_users, full_access, is_disabled";
 
 // `required` lists which permissions would grant access — any one of them
 // is enough (OR semantics), same as the old role-list model. Omit it
@@ -79,6 +79,14 @@ export async function requireAdmin(required?: AdminPermission[]) {
   const { data: admin, error } = await supabase.from("admin_users").select(ADMIN_SELECT).eq("auth_user_id", user.id).single();
 
   if (error || !admin) redirect("/admin/login");
+
+  // Disabled is enforced HERE, not at the Supabase Auth layer — a
+  // disabled account can technically still authenticate with Supabase,
+  // but is rejected the moment it tries to reach any admin page or API,
+  // which is every single call site that already goes through this
+  // function. Checked before the permission check below so a disabled
+  // Full Access admin is blocked exactly the same as anyone else.
+  if (admin.is_disabled) redirect("/admin/login?disabled=1");
 
   if (required && required.length > 0 && !admin.full_access) {
     const hasAny = required.some((p) => admin[PERMISSION_COLUMN[p] as keyof typeof admin] === true);

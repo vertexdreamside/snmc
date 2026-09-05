@@ -13,6 +13,7 @@ interface AdminUserRow {
   can_manage_elections: boolean;
   can_manage_admin_users: boolean;
   full_access: boolean;
+  is_disabled: boolean;
 }
 
 const PERMISSION_FIELDS = [
@@ -101,10 +102,11 @@ function UserRow({ user, isSelf, onChanged }: { user: AdminUserRow; isSelf: bool
   }
 
   return (
-    <tr className={user.full_access ? "bg-council-cyan/5" : ""}>
+    <tr className={user.is_disabled ? "bg-council-ink/5 opacity-60" : user.full_access ? "bg-council-cyan/5" : ""}>
       <td className="px-4 py-3">
         <div className="font-medium">
           {user.full_name ?? "—"} {isSelf && <span className="text-council-ink/40 text-xs">(you)</span>}
+          {user.is_disabled && <span className="ml-2 text-status-closed text-xs font-medium">Disabled</span>}
         </div>
         <input
           type="text"
@@ -144,6 +146,15 @@ function UserRow({ user, isSelf, onChanged }: { user: AdminUserRow; isSelf: bool
           <button onClick={handleResetPassword} disabled={busy !== null} className="text-council-navy text-xs font-body underline disabled:opacity-60">
             Reset Password
           </button>
+          {!isSelf && (
+            <button
+              onClick={() => patchField("is_disabled", !user.is_disabled)}
+              disabled={busy !== null}
+              className={`text-xs font-body underline disabled:opacity-60 ${user.is_disabled ? "text-status-active" : "text-status-pending"}`}
+            >
+              {user.is_disabled ? "Enable Account" : "Disable Account"}
+            </button>
+          )}
           {!isSelf && (
             <button onClick={handleRemove} disabled={busy !== null} className="text-status-closed text-xs font-body underline disabled:opacity-60">
               Remove
