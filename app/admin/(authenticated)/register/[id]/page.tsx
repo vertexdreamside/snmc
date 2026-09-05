@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PersonActions } from "./PersonActions";
 import { categoryDisplay } from "@/lib/licenses";
 import { SpecialLicensesSection } from "./SpecialLicensesSection";
+import { HistorySection } from "./HistorySection";
 
 export default async function PersonDetailPage({ params }: { params: { id: string } }) {
   await requireAdmin();
@@ -26,6 +27,20 @@ export default async function PersonDetailPage({ params }: { params: { id: strin
     .select("id, license_name, license_number, issued_date, expiry_date")
     .eq("person_id", params.id)
     .order("created_at", { ascending: false });
+
+  // Registration/approval/audit history (Section 2 of the platform
+  // requirements) — pulled from the same audit_log every admin action
+  // and self-service edit already writes to, covering both directions:
+  // things this person did (self-service edits, logins, nominations) and
+  // things done TO their record (approvals, rejections, edits, licence
+  // document reviews). No separate "history" table needed — this is
+  // literally the source of truth for it.
+  const { data: history } = await supabase
+    .from("audit_log")
+    .select("id, action, details, created_at")
+    .or(`actor_id.eq.${params.id},target_id.eq.${params.id}`)
+    .order("created_at", { ascending: false })
+    .limit(100);
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -68,6 +83,8 @@ export default async function PersonDetailPage({ params }: { params: { id: strin
       </div>
 
       <SpecialLicensesSection personId={person.id} licenses={specialLicenses ?? []} />
+
+      <HistorySection entries={history ?? []} />
     </div>
   );
 }
