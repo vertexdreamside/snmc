@@ -49,6 +49,27 @@ export async function PATCH(request: Request, { params }: { params: { id: string
         update[closeField] = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
       }
     }
+
+    // Section 25: closing an election does NOT publish results — it
+    // enters a separate Council Review / Minister Approval chain first.
+    // This transition happens automatically the moment an election is
+    // actually closed, so nobody has to remember to kick off approval
+    // as a separate manual step.
+    if (parsed.data.status === "Election Closed") {
+      update.approval_status = "Pending Approval";
+    }
+  }
+
+  // Publishing is hard-gated on the approval chain having actually
+  // reached Approved — enforced here, not just by hiding the Publish
+  // button in the UI, so a direct API call can't skip Minister Approval
+  // (or publish while a dispute is still open, since a dispute can only
+  // ever resolve back to Pending Approval, never straight to Approved).
+  if (parsed.data.resultsPublished === true) {
+    const { data: election } = await supabase.from("elections").select("approval_status").eq("id", params.id).single();
+    if (!election || election.approval_status !== "Approved") {
+      return NextResponse.json({ ok: false, reason: "Results can only be published after Minister Approval has been recorded." }, { status: 400 });
+    }
   }
   if (parsed.data.resultsPublished !== undefined) update.results_published = parsed.data.resultsPublished;
 

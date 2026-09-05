@@ -9,6 +9,7 @@ import { VoterParticipation } from "./VoterParticipation";
 import { ElectionMonitor } from "./ElectionMonitor";
 import { ExtendElectionForm } from "./ExtendElectionForm";
 import { ElectionSummary } from "./ElectionSummary";
+import { ApprovalPanel } from "./ApprovalPanel";
 import { IntegrityCheck } from "./IntegrityCheck";
 import { DisputeRecountPanel } from "./DisputeRecountPanel";
 
@@ -18,7 +19,7 @@ export default async function ElectionDetailPage({ params }: { params: { id: str
 
   const { data: election } = await supabase
     .from("elections")
-    .select("id, term_label, status, results_published, live_results_visible, round1_close_at, round2_close_at")
+    .select("id, term_label, status, results_published, live_results_visible, round1_close_at, round2_close_at, approval_status, approved_by, approved_at, approval_reference, approval_notes")
     .eq("id", params.id)
     .single();
 
@@ -71,7 +72,7 @@ export default async function ElectionDetailPage({ params }: { params: { id: str
       </div>
 
       <div className="bg-white rounded-card border border-council-navy/10 p-6 space-y-4">
-        <ElectionControls electionId={election.id} status={election.status} resultsPublished={election.results_published} />
+        <ElectionControls electionId={election.id} status={election.status} resultsPublished={election.results_published} approvalStatus={election.approval_status} />
         <div className="pt-4 border-t border-council-navy/10 space-y-2">
           <ExtendElectionForm electionId={election.id} field="round1_close_at" label="Nomination closes" currentClosing={election.round1_close_at} />
           <ExtendElectionForm electionId={election.id} field="round2_close_at" label="Voting closes" currentClosing={election.round2_close_at} />
@@ -93,6 +94,15 @@ export default async function ElectionDetailPage({ params }: { params: { id: str
         <>
           <IntegrityCheck electionId={election.id} round={2} />
           <DisputeRecountPanel electionId={election.id} disputes={disputes ?? []} candidateNames={candidateNames} />
+          <ApprovalPanel
+            electionId={election.id}
+            approvalStatus={election.approval_status}
+            approvedBy={election.approved_by}
+            approvedAt={election.approved_at}
+            approvalReference={election.approval_reference}
+            approvalNotes={election.approval_notes}
+            hasUnresolvedDisputes={(disputes ?? []).some((d: any) => d.status !== "Resolved")}
+          />
         </>
       )}
 

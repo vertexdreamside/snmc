@@ -24,7 +24,7 @@ const ROUND_LABEL: Record<string, string> = {
   Completed: "Completed",
 };
 
-export function ElectionControls({ electionId, status, resultsPublished }: { electionId: string; status: string; resultsPublished: boolean }) {
+export function ElectionControls({ electionId, status, resultsPublished, approvalStatus }: { electionId: string; status: string; resultsPublished: boolean; approvalStatus: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [confirmText, setConfirmText] = useState("");
@@ -92,12 +92,18 @@ export function ElectionControls({ electionId, status, resultsPublished }: { ele
         )}
         <button
           onClick={togglePublish}
-          disabled={busy}
-          className="border border-council-navy/20 font-body text-sm font-medium rounded-card px-4 py-2 disabled:opacity-60"
+          disabled={busy || (!resultsPublished && approvalStatus !== "Approved")}
+          title={!resultsPublished && approvalStatus !== "Approved" ? "Requires Minister Approval first — see Council Review & Minister Approval below." : undefined}
+          className="border border-council-navy/20 font-body text-sm font-medium rounded-card px-4 py-2 disabled:opacity-40"
         >
           {resultsPublished ? "Unpublish Results" : "Publish Results"}
         </button>
       </div>
+      {!resultsPublished && approvalStatus !== "Approved" && (
+        <p className="font-body text-xs text-council-ink/40 mt-2">
+          Publishing is locked until Minister Approval is recorded below.
+        </p>
+      )}
 
       {showConfirm && (
         <div className="bg-status-pending/10 border border-status-pending rounded-card p-3 space-y-2">
