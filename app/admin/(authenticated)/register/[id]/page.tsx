@@ -4,9 +4,13 @@ import { createClient } from "@/lib/supabase/server";
 import { PersonActions } from "./PersonActions";
 import { RecordManagementSection } from "./RecordManagementSection";
 import { categoryDisplay } from "@/lib/licenses";
-import { SpecialLicensesSection } from "./SpecialLicensesSection";
+import { LicenceDetailsSection } from "./LicenceDetailsSection";
 import { HistorySection } from "./HistorySection";
 
+// Reorganized per Section 7: Profile Summary, Personal Details,
+// Professional Details, and a unified Licence Details table (Nurse,
+// Midwife, and every Special Licence as rows in ONE table, not a
+// separate isolated section) — rather than one long flat field list.
 export default async function PersonDetailPage({ params }: { params: { id: string } }) {
   await requireAdmin();
   const supabase = createClient();
@@ -29,22 +33,21 @@ export default async function PersonDetailPage({ params }: { params: { id: strin
     .eq("person_id", params.id)
     .order("created_at", { ascending: false });
 
-  // Renewal history (Section 5) — every renewal request ever made for
-  // this person, approved or not, retained permanently rather than only
-  // showing the current expiry date.
+  const { data: licenseDocs } = await supabase
+    .from("license_documents")
+    .select("id, license_type, status")
+    .eq("person_id", params.id)
+    .order("created_at", { ascending: false });
+
+  const nurseDoc = (licenseDocs ?? []).find((d) => d.license_type === "Nurse") ?? null;
+  const midwifeDoc = (licenseDocs ?? []).find((d) => d.license_type === "Midwife") ?? null;
+
   const { data: renewalHistory } = await supabase
     .from("license_renewals")
     .select("id, license_type, previous_expiry_date, requested_expiry_date, status, submitted_at, reviewed_at, review_comment")
     .eq("person_id", params.id)
     .order("submitted_at", { ascending: false });
 
-  // Registration/approval/audit history (Section 2 of the platform
-  // requirements) — pulled from the same audit_log every admin action
-  // and self-service edit already writes to, covering both directions:
-  // things this person did (self-service edits, logins, nominations) and
-  // things done TO their record (approvals, rejections, edits, licence
-  // document reviews). No separate "history" table needed — this is
-  // literally the source of truth for it.
   const { data: history } = await supabase
     .from("audit_log")
     .select("id, action, details, created_at")
@@ -53,7 +56,8 @@ export default async function PersonDetailPage({ params }: { params: { id: strin
     .limit(100);
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="max-w-3xl space-y-6">
+      {/* Profile Summary */}
       <div>
         <h1 className="font-display text-2xl text-council-navy">
           {person.first_name} {person.last_name}
@@ -62,6 +66,8 @@ export default async function PersonDetailPage({ params }: { params: { id: strin
           {person.nurse_reg_no && `Nurse Reg. ${person.nurse_reg_no}`}
           {person.nurse_reg_no && person.midwife_reg_no && " · "}
           {person.midwife_reg_no && `Midwife Reg. ${person.midwife_reg_no}`}
+          {" · "}{categoryDisplay(person.professional_category)}
+          {" · "}{person.registration_status}
         </p>
       </div>
 
@@ -69,30 +75,43 @@ export default async function PersonDetailPage({ params }: { params: { id: strin
         <PersonActions personId={person.id} profileStatus={person.profile_status} />
       </div>
 
+      {/* Personal Details */}
       <div className="bg-white rounded-card border border-council-navy/10 p-6">
-        <h2 className="font-display text-base text-council-navy mb-4">Profile</h2>
+        <h2 className="font-display text-base text-council-navy mb-4">Personal Details</h2>
         <dl className="grid grid-cols-2 gap-y-3 font-body text-sm">
-          <Field label="Registration Status" value={person.registration_status} />
-          <Field label="Profile Status" value={person.profile_status} />
-          <Field label="Category" value={categoryDisplay(person.professional_category)} />
           <Field label="Sex" value={person.sex} />
+          <Field label="Date of Birth" value={person.date_of_birth} />
+          <Field label="Address" value={[person.address_line1, person.address_line2, person.address_line3].filter(Boolean).join(", ")} />
+          <Field label="Mobile" value={person.phone_mobile} />
+          <Field label="Home Phone" value={person.phone_home} />
+        </dl>
+      </div>
+
+      {/* Professional Details */}
+      <div className="bg-white rounded-card border border-council-navy/10 p-6">
+        <h2 className="font-display text-base text-council-navy mb-4">Professional Details</h2>
+        <dl className="grid grid-cols-2 gap-y-3 font-body text-sm">
+          <Field label="Training Institute" value={person.training_institute} />
           <Field label="Employer" value={person.employer} />
           <Field label="Place of Work" value={person.place_of_work} />
           <Field label="Employment Sector" value={person.employment_sector} />
           <Field label="Service Category" value={person.service_category} />
-          <Field label="Training Institute" value={person.training_institute} />
-          <Field label="Address" value={[person.address_line1, person.address_line2, person.address_line3].filter(Boolean).join(", ")} />
-          <Field label="Mobile" value={person.phone_mobile} />
-          <Field label="Home Phone" value={person.phone_home} />
-          <Field label="Nurse Licence" value={person.nurse_license_no} />
-          <Field label="Nurse Licence Expiry" value={person.nurse_license_expiry} />
-          <Field label="Midwife Licence" value={person.midwife_license_no} />
-          <Field label="Midwife Licence Expiry" value={person.midwife_license_expiry} />
-          <Field label="Source" value={person.data_source} />
+          <Field label="Profile Status" value={person.profile_status} />
+          <Field label="Data Source" value={person.data_source} />
         </dl>
       </div>
 
-      <SpecialLicensesSection personId={person.id} licenses={specialLicenses ?? []} />
+      {/* Licence Details — Nurse, Midwife, and Special Licences unified */}
+      <LicenceDetailsSection
+        personId={person.id}
+        nurseLicenseNo={person.nurse_license_no}
+        nurseLicenseExpiry={person.nurse_license_expiry}
+        nurseDoc={nurseDoc}
+        midwifeLicenseNo={person.midwife_license_no}
+        midwifeLicenseExpiry={person.midwife_license_expiry}
+        midwifeDoc={midwifeDoc}
+        specialLicenses={specialLicenses ?? []}
+      />
 
       {renewalHistory && renewalHistory.length > 0 && (
         <div className="bg-white rounded-card border border-council-navy/10 p-6">

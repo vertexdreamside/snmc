@@ -35,7 +35,7 @@ const DATASETS = [
 ] as const;
 
 const REGISTER_COLUMNS =
-  "first_name, last_name, sex, nurse_reg_no, midwife_reg_no, professional_category, registration_status, profile_status, employment_sector, service_category, place_of_work, employer, training_institute, nurse_license_expiry, midwife_license_expiry, category_confirmed";
+  "first_name, last_name, sex, nurse_reg_no, midwife_reg_no, professional_category, registration_status, profile_status, employment_sector, service_category, place_of_work, employer, training_institute, nurse_license_expiry, midwife_license_expiry, category_confirmed, is_deceased";
 
 export async function GET(request: Request) {
   const actor = await requireAdmin(["reports"]);
@@ -92,11 +92,15 @@ export async function GET(request: Request) {
       break;
     }
     case "special_licenses": {
-      const { data, error } = await supabase.from("special_licenses").select("license_name, license_number, issued_date, expiry_date, people:person_id(first_name, last_name)").order("issued_date", { ascending: false });
+      // Fixed: previously omitted `status` entirely, meaning a Rejected
+      // or still-Pending special licence looked indistinguishable from
+      // a genuinely approved one in the export — a real accuracy bug,
+      // not just a missing nicety.
+      const { data, error } = await supabase.from("special_licenses").select("license_name, license_number, issued_date, expiry_date, status, source, people:person_id(first_name, last_name)").order("issued_date", { ascending: false });
       if (error) return NextResponse.json({ ok: false, reason: "Query failed." }, { status: 500 });
       rows = (data ?? []).map((s: any) => {
         const p = Array.isArray(s.people) ? s.people[0] : s.people;
-        return { name: `${p?.first_name ?? ""} ${p?.last_name ?? ""}`, license_name: s.license_name, license_number: s.license_number, issued_date: s.issued_date, expiry_date: s.expiry_date };
+        return { name: `${p?.first_name ?? ""} ${p?.last_name ?? ""}`, license_name: s.license_name, license_number: s.license_number, issued_date: s.issued_date, expiry_date: s.expiry_date, status: s.status, source: s.source };
       });
       targetTable = "special_licenses";
       break;
@@ -165,8 +169,10 @@ export async function GET(request: Request) {
     }
     case "admin_users": {
       // Title/permissions/activity only — never email, auth_user_id, or
-      // anything credential-related.
-      const { data, error } = await supabase.from("admin_users").select("full_name, role, can_view_reports, can_manage_register, can_manage_elections, can_manage_admin_users, full_access");
+      // anything credential-related. Fixed: was stale against the
+      // Admin Users/Councillors split — user_type, is_disabled, and
+      // phone existed on the table but weren't in this export.
+      const { data, error } = await supabase.from("admin_users").select("full_name, role, phone, user_type, is_disabled, can_view_reports, can_manage_register, can_manage_elections, can_manage_admin_users, full_access");
       if (error) return NextResponse.json({ ok: false, reason: "Query failed." }, { status: 500 });
       rows = data ?? [];
       targetTable = "admin_users";
