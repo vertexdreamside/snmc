@@ -27,7 +27,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     .single();
 
   if (fetchError || !renewal) return NextResponse.json({ ok: false, reason: "Renewal request not found." }, { status: 404 });
-  if (renewal.status !== "Pending") {
+  if (renewal.status !== "Pending" && renewal.status !== "Under Review") {
     return NextResponse.json({ ok: false, reason: `Already ${renewal.status.toLowerCase()}.` }, { status: 400 });
   }
 

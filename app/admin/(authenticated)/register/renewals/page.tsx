@@ -8,8 +8,8 @@ export default async function LicenseRenewalsPage() {
 
   const { data: renewals } = await supabase
     .from("license_renewals")
-    .select("id, license_type, previous_expiry_date, requested_expiry_date, submitted_at, supporting_document_id, people:person_id(id, first_name, last_name, nurse_reg_no, midwife_reg_no)")
-    .eq("status", "Pending")
+    .select("id, license_type, previous_expiry_date, requested_expiry_date, submitted_at, supporting_document_id, status, people:person_id(id, first_name, last_name, nurse_reg_no, midwife_reg_no)")
+    .in("status", ["Pending", "Under Review"])
     .order("submitted_at", { ascending: true });
 
   return (
@@ -32,6 +32,7 @@ export default async function LicenseRenewalsPage() {
             previousExpiry={r.previous_expiry_date}
             requestedExpiry={r.requested_expiry_date}
             documentId={r.supporting_document_id}
+            status={r.status}
           />
         ))}
         {(!renewals || renewals.length === 0) && (
