@@ -2,6 +2,7 @@ import { EmptyState } from "@/lib/components/EmptyState";
 import { requireAdmin } from "@/lib/auth/guards";
 import { createClient } from "@/lib/supabase/server";
 import { PersonActions } from "./PersonActions";
+import { RecordManagementSection } from "./RecordManagementSection";
 import { categoryDisplay } from "@/lib/licenses";
 import { SpecialLicensesSection } from "./SpecialLicensesSection";
 import { HistorySection } from "./HistorySection";
@@ -13,7 +14,7 @@ export default async function PersonDetailPage({ params }: { params: { id: strin
   const { data: person } = await supabase
     .from("people")
     .select(
-      "id, first_name, last_name, sex, date_of_birth, address_line1, address_line2, address_line3, phone_home, phone_mobile, nurse_reg_no, midwife_reg_no, professional_category, training_institute, employer, place_of_work, employment_sector, service_category, nurse_license_no, nurse_license_expiry, midwife_license_no, midwife_license_expiry, registration_status, is_active, profile_status, data_source"
+      "id, first_name, last_name, sex, date_of_birth, address_line1, address_line2, address_line3, phone_home, phone_mobile, nurse_reg_no, midwife_reg_no, professional_category, training_institute, employer, place_of_work, employment_sector, service_category, nurse_license_no, nurse_license_expiry, midwife_license_no, midwife_license_expiry, registration_status, is_active, is_deceased, profile_status, data_source"
     )
     .eq("id", params.id)
     .single();
@@ -24,7 +25,7 @@ export default async function PersonDetailPage({ params }: { params: { id: strin
 
   const { data: specialLicenses } = await supabase
     .from("special_licenses")
-    .select("id, license_name, license_number, issued_date, expiry_date")
+    .select("id, license_name, license_number, issued_date, expiry_date, status, source")
     .eq("person_id", params.id)
     .order("created_at", { ascending: false });
 
@@ -117,6 +118,8 @@ export default async function PersonDetailPage({ params }: { params: { id: strin
       )}
 
       <HistorySection entries={history ?? []} />
+
+      <RecordManagementSection personId={person.id} isDeceased={person.is_deceased} />
     </div>
   );
 }

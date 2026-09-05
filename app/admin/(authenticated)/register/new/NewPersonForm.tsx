@@ -9,6 +9,7 @@ export function NewPersonForm() {
   const router = useRouter();
   const [form, setForm] = useState({
     first_name: "", last_name: "", sex: "Unknown",
+    nin: "", email: "",
     nurse_reg_no: "", midwife_reg_no: "",
     professional_category: "", registration_status: "Unknown", is_deceased: false,
     employer: "", place_of_work: "", phone_mobile: "",
@@ -44,6 +45,9 @@ export function NewPersonForm() {
         <Field label="First Name" required value={form.first_name} onChange={(v) => update("first_name", v)} />
         <Field label="Last Name" required value={form.last_name} onChange={(v) => update("last_name", v)} />
       </div>
+      <Field label="N.I.N" required value={form.nin} onChange={(v) => update("nin", v)} placeholder="e.g. 123456-7-8901" />
+      <p className="font-body text-xs text-council-ink/40 -mt-2">Enter the N.I.N exactly as issued, including the hyphen.</p>
+      <Field label="Email Address" value={form.email} onChange={(v) => update("email", v)} placeholder="name@example.com" />
       <label className="block">
         <span className="font-body text-sm text-council-ink/70 block mb-1">Sex</span>
         <select value={form.sex} onChange={(e) => update("sex", e.target.value)} className="w-full border border-council-navy/20 rounded-card px-3 py-2 font-body focus:outline-none focus:ring-2 focus:ring-council-cyan">

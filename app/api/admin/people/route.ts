@@ -1,87 +1,97 @@
-// Admin edits to a person's record — approve/reject a pending profile
-// change, edit fields directly, or mark deceased. Deceased is
-// deliberately admin-only (Section 4: "never settable via self-service").
+// Creates a new nurse/midwife record directly from the admin panel —
+// previously the only ways to add someone were a bulk CSV import or
+// directly in Supabase. Starts as 'Approved' (an admin entering this has
+// already reviewed it), unlike a self-service edit which always resets
+// to 'Pending Review'. auth_user_id is left null — it self-heals the
+// first time this person successfully logs in.
+//
+// NIN is mandatory here (Section 4 of the confirmed UX requirements) —
+// unlike the self-service portal, which allows leaving it blank if
+// already on file, there's no "already on file" case for a brand new
+// record. Email is stored in the separate people_emails table (the
+// people table itself has no email column) and is optional — the
+// requirements ask for the field, not that every historical record
+// must have one before it can be created.
 
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/guards";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
-const updateSchema = z.object({
-  action: z.enum(["approve", "reject", "mark_deceased", "edit_fields"]),
-  fields: z.record(z.string()).optional(),
+const createPersonSchema = z.object({
+  first_name: z.string().min(1, "First name is required"),
+  last_name: z.string().min(1, "Last name is required"),
+  sex: z.enum(["M", "F", "Unknown"]).default("Unknown"),
+  nin: z.string().min(1, "N.I.N is required"),
+  email: z.string().email("Enter a valid email address").optional().or(z.literal("")),
+  nurse_reg_no: z.string().optional().default(""),
+  midwife_reg_no: z.string().optional().default(""),
+  professional_category: z.enum(["Nurse", "Midwife", "Both"]).optional(),
+  registration_status: z
+    .enum(["Practising", "Not Practising", "Retired", "Abroad", "Deceased", "Deleted", "Unknown"])
+    .default("Unknown"),
+  is_deceased: z.boolean().default(false),
+  employer: z.string().optional().default(""),
+  place_of_work: z.string().optional().default(""),
+  phone_mobile: z.string().optional().default(""),
 });
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
-  const admin = await requireAdmin(["register"]);
+export async function POST(request: Request) {
+  const actor = await requireAdmin(["register"]);
 
   const body = await request.json();
-  const parsed = updateSchema.safeParse(body);
+  const parsed = createPersonSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ ok: false, reason: "Invalid input." }, { status: 400 });
+    return NextResponse.json({ ok: false, reason: parsed.error.errors[0]?.message ?? "Invalid input." }, { status: 400 });
+  }
+  const data = parsed.data;
+
+  if (!data.nurse_reg_no && !data.midwife_reg_no) {
+    return NextResponse.json({ ok: false, reason: "At least one registration number is required." }, { status: 400 });
   }
 
   const supabase = createServiceRoleClient();
-  let update: Record<string, unknown> = {};
-  let action = "";
 
-  switch (parsed.data.action) {
-    case "approve":
-      update = { profile_status: "Approved" };
-      action = "admin_approved_profile";
-      break;
-    case "reject":
-      update = { profile_status: "Rejected" };
-      action = "admin_rejected_profile";
-      break;
-    case "mark_deceased":
-      // is_deceased is the ACTUAL eligibility gate as of migration 0009 —
-      // registration_status alone no longer means anything for
-      // nomination/voting eligibility, so this must set both or marking
-      // someone deceased here would silently fail to actually block them.
-      update = { registration_status: "Deceased", is_active: false, is_deceased: true };
-      action = "admin_marked_deceased";
-      break;
-    case "edit_fields":
-      // Whitelist — never allow this route to touch nin, auth_user_id,
-      // nurse_reg_no/midwife_reg_no (those are register-integrity fields,
-      // not casual edits) or profile_status/registration_status (those
-      // have their own dedicated actions above with proper audit labels).
-      const allowed = [
-        "first_name",
-        "last_name",
-        "address_line1",
-        "address_line2",
-        "address_line3",
-        "phone_home",
-        "phone_mobile",
-        "employer",
-        "place_of_work",
-        "employment_sector",
-        "service_category",
-        "training_institute",
-      ];
-      for (const key of Object.keys(parsed.data.fields ?? {})) {
-        if (allowed.includes(key)) update[key] = parsed.data.fields![key];
-      }
-      action = "admin_edited_fields";
-      break;
+  const { data: created, error } = await supabase
+    .from("people")
+    .insert({
+      first_name: data.first_name,
+      last_name: data.last_name,
+      sex: data.sex,
+      nin: data.nin,
+      nurse_reg_no: data.nurse_reg_no || null,
+      midwife_reg_no: data.midwife_reg_no || null,
+      professional_category: data.professional_category ?? null,
+      registration_status: data.registration_status,
+      is_deceased: data.is_deceased,
+      employer: data.employer || null,
+      place_of_work: data.place_of_work || null,
+      phone_mobile: data.phone_mobile || null,
+      profile_status: "Approved",
+      category_confirmed: !!data.professional_category,
+      data_source: "Manually added by admin",
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    if ((error as { code?: string }).code === "23505") {
+      return NextResponse.json({ ok: false, reason: "That registration number is already in use." }, { status: 409 });
+    }
+    return NextResponse.json({ ok: false, reason: "Could not create the record." }, { status: 500 });
   }
 
-  update.updated_at = new Date().toISOString();
-
-  const { error } = await supabase.from("people").update(update).eq("id", params.id);
-  if (error) {
-    return NextResponse.json({ ok: false, reason: "Update failed." }, { status: 500 });
+  if (data.email) {
+    await supabase.from("people_emails").insert({ person_id: created.id, email: data.email });
   }
 
   await supabase.from("audit_log").insert({
-    actor_id: admin.id,
-    action,
+    actor_id: actor.id,
+    action: "admin_created_person",
     target_table: "people",
-    target_id: params.id,
-    details: parsed.data.action === "edit_fields" ? update : undefined,
+    target_id: created.id,
+    details: { first_name: data.first_name, last_name: data.last_name },
   });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, id: created.id });
 }
