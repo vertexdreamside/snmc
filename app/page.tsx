@@ -1,129 +1,69 @@
-import { requirePortalUser } from "@/lib/auth/guards";
-import { createClient } from "@/lib/supabase/server";
-import { ClipboardCheck, Vote, ArrowRight, Info } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
-import { NomineeResponseBanner } from "./NomineeResponseBanner";
+import { Stethoscope, Users, ShieldCheck } from "lucide-react";
+import { ContactFooter } from "@/lib/components/ContactFooter";
 
-export default async function PortalHome() {
-  const person = await requirePortalUser();
-  const supabase = createClient();
-
-  const [{ data: openElections }, { data: nominationElections }, { data: pendingCandidacies }] = await Promise.all([
-    supabase.from("elections").select("id, term_label, status").eq("status", "Election Open"),
-    supabase.from("elections").select("id, term_label, status").eq("status", "Nomination Open"),
-    supabase
-      .from("candidates")
-      .select("id, category, elections(term_label)")
-      .eq("person_id", person.id)
-      .eq("status", "Pending"),
-  ]);
-
-  const hasNominations = nominationElections && nominationElections.length > 0;
-  const hasVoting = openElections && openElections.length > 0;
-  const pendingNominations = (pendingCandidacies ?? []).map((c: any) => ({
-    id: c.id,
-    category: c.category,
-    election_term: c.elections?.term_label ?? "",
-  }));
-
+// Landing page: a plain switchboard to the three portals (Section 1.1).
+// No aggressive marketing copy — this is a utility for people who already
+// know what they're here to do. Header treatment (dark navy-to-black
+// gradient band) matches the live SNMC website's hero style.
+export default function HomePage() {
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <NomineeResponseBanner nominations={pendingNominations} />
-      <section className="bg-white rounded-card border border-council-navy/10 p-6">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="font-display text-lg text-council-navy">Your Profile</h2>
-          <Link href="/portal/profile" className="font-body text-xs text-council-cyan underline">
-            View / Edit full details
-          </Link>
+    <main className="min-h-screen bg-white flex flex-col">
+      <div className="bg-council-header pt-16 pb-24 px-6">
+        <div className="max-w-2xl mx-auto text-center">
+          <Image
+            src="/snmc-emblem.png"
+            alt="SNMC emblem"
+            width={64}
+            height={64}
+            className="mx-auto mb-4"
+            priority
+          />
+          <h1 className="font-display text-3xl md:text-4xl text-white mb-2">
+            Seychelles Nurses &amp; Midwives Council
+          </h1>
+          <p className="font-body text-council-cyanLight">Excellence in Practice · Safety in Care</p>
         </div>
-        <dl className="grid grid-cols-2 gap-y-2 font-body text-sm">
-          <dt className="text-council-ink/60">Status</dt>
-          <dd>{person.registration_status}</dd>
-          <dt className="text-council-ink/60">Category</dt>
-          <dd>{person.professional_category ?? "—"}</dd>
-          <dt className="text-council-ink/60">Profile</dt>
-          <dd>{person.profile_status}</dd>
-        </dl>
-      </section>
+      </div>
 
-      {hasNominations && (
-        <section className="bg-white rounded-card border border-council-navy/20 overflow-hidden">
-          <div className="px-6 pt-5">
-            <h2 className="font-display text-lg text-council-navy mb-1">Nominations Open — Round 1</h2>
-            <ElectionRules kind="nominate" />
-          </div>
-          {nominationElections!.map((e) => (
-            <ActionRow key={e.id} href={`/portal/nominate/${e.id}`} icon={ClipboardCheck} label={e.term_label} sub="Submit a nomination" />
-          ))}
-        </section>
-      )}
+      <div className="max-w-2xl mx-auto px-6 -mt-12 pb-16 w-full">
+        <div className="grid gap-4 sm:grid-cols-3">
+          <PortalCard
+            href="/portal/login"
+            icon={Stethoscope}
+            title="Nurse / Midwife Portal"
+            desc="Vote, view or update your profile"
+          />
+          <PortalCard href="/council" icon={Users} title="Councillor Portal" desc="Council members" />
+          <PortalCard href="/admin/login" icon={ShieldCheck} title="Staff Portal" desc="Council office administration" />
+        </div>
+      </div>
 
-      {hasVoting && (
-        <section className="bg-white rounded-card border border-council-cyan overflow-hidden">
-          <div className="px-6 pt-5">
-            <h2 className="font-display text-lg text-council-navy mb-1">Voting Open — Round 2</h2>
-            <ElectionRules kind="vote" />
-          </div>
-          {openElections!.map((e) => (
-            <ActionRow key={e.id} href={`/portal/vote/${e.id}`} icon={Vote} label={e.term_label} sub={e.status} />
-          ))}
-        </section>
-      )}
-
-      {!hasNominations && !hasVoting && (
-        <section className="bg-white rounded-card border border-council-navy/10 p-6 text-center">
-          <p className="font-body text-sm text-council-ink/50">
-            Nothing needs your attention right now — no nominations or voting are currently open.
-          </p>
-        </section>
-      )}
-    </div>
+      <ContactFooter />
+    </main>
   );
 }
 
-// Guidance drawn directly from the historical Nomination Form and Ballot
-// Form this platform digitizes — the same eligibility and voting rules
-// stated on those paper forms, just shown at the moment they're actually
-// relevant instead of buried in a printed instruction sheet.
-function ElectionRules({ kind }: { kind: "nominate" | "vote" }) {
-  return (
-    <div className="flex gap-2 bg-council-cream rounded-card px-3 py-2.5 mb-3">
-      <Info size={16} className="text-council-cyan shrink-0 mt-0.5" aria-hidden="true" />
-      {kind === "nominate" ? (
-        <p className="font-body text-xs text-council-ink/70">
-          A Registered Licensed Nurse Midwife may nominate a Nurse and a Midwife. A Registered Licensed Nurse
-          (only) may nominate a Nurse only. A Licensed Midwife who is not also a Registered Nurse may only
-          nominate a Midwife.
-        </p>
-      ) : (
-        <p className="font-body text-xs text-council-ink/70">
-          Make a tick against one candidate of your choice in each category you're eligible to vote in. You may
-          cast one vote per category, and your choice is recorded anonymously.
-        </p>
-      )}
-    </div>
-  );
-}
-
-function ActionRow({
+function PortalCard({
   href,
   icon: Icon,
-  label,
-  sub,
+  title,
+  desc,
 }: {
   href: string;
   icon: React.ElementType;
-  label: string;
-  sub: string;
+  title: string;
+  desc: string;
 }) {
   return (
-    <a href={href} className="flex items-center gap-3 px-6 py-4 border-t border-council-navy/10 first-of-type:border-t-0 hover:bg-council-cream transition-colors">
-      <Icon size={18} strokeWidth={1.75} className="text-council-cyan shrink-0" aria-hidden="true" />
-      <div className="flex-1 min-w-0">
-        <p className="font-body text-sm text-council-navy">{label}</p>
-        <p className="font-body text-xs text-council-ink/50">{sub}</p>
-      </div>
-      <ArrowRight size={16} className="text-council-ink/30 shrink-0" aria-hidden="true" />
-    </a>
+    <Link
+      href={href}
+      className="block bg-white rounded-card border border-council-navy/10 shadow-sm p-6 text-left hover:border-council-cyan transition-colors"
+    >
+      <Icon size={28} strokeWidth={1.75} className="text-council-cyan mb-3" aria-hidden="true" />
+      <h2 className="font-display text-lg text-council-navy mb-1">{title}</h2>
+      <p className="font-body text-sm text-council-ink/60">{desc}</p>
+    </Link>
   );
 }
