@@ -14,12 +14,14 @@ export function CandidateRow({
   status,
   nominationCount,
   votes,
+  candidateListLocked,
 }: {
   candidateId: string;
   name: string;
   status: string;
   nominationCount: number;
   votes: number | null;
+  candidateListLocked: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -70,14 +72,17 @@ export function CandidateRow({
           {votes !== null && <> · {votes} vote{votes === 1 ? "" : "s"}</>}
         </p>
         {message && <p className="font-body text-xs text-council-ink/60 italic mt-1">{message}</p>}
+        {candidateListLocked && (status === "Nominated" || status === "Pending") && (
+          <p className="font-body text-xs text-status-pending mt-1">Candidate list is locked — voting has started.</p>
+        )}
       </div>
       <div className="flex gap-2">
-        {status === "Nominated" && (
+        {status === "Nominated" && !candidateListLocked && (
           <button onClick={select} disabled={busy !== null} className="text-xs font-body bg-council-navy text-white rounded-card px-3 py-1.5 disabled:opacity-60">
             {busy === "select" ? "Selecting…" : "Select to Progress"}
           </button>
         )}
-        {status === "Pending" && !showReasonFor && (
+        {status === "Pending" && !showReasonFor && !candidateListLocked && (
           <>
             <button onClick={() => recordDecision("Accepted")} disabled={busy !== null} className="text-xs font-body bg-status-active text-white rounded-card px-3 py-1.5 disabled:opacity-60">
               Accept

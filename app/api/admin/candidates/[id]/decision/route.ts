@@ -10,6 +10,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/guards";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { isCandidateListLocked } from "@/lib/elections/computeTally";
 
 const decisionSchema = z.object({
   decision: z.enum(["Accepted", "Declined", "Removed"]),
@@ -30,12 +31,16 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   const { data: candidate, error: fetchError } = await supabase
     .from("candidates")
-    .select("id, election_id, category, person_id, nomination_count, status")
+    .select("id, election_id, category, person_id, nomination_count, status, elections(status)")
     .eq("id", params.id)
     .single();
 
   if (fetchError || !candidate) {
     return NextResponse.json({ ok: false, reason: "Candidate not found." }, { status: 404 });
+  }
+  const election = Array.isArray(candidate.elections) ? candidate.elections[0] : candidate.elections;
+  if (election && isCandidateListLocked(election.status)) {
+    return NextResponse.json({ ok: false, reason: "The candidate list is locked — voting has already started for this election." }, { status: 400 });
   }
   if (candidate.status !== "Pending") {
     return NextResponse.json(

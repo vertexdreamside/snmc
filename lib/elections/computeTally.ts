@@ -20,3 +20,13 @@ export async function computeTally(
   (ballots ?? []).forEach((b: { candidate_id: string }) => counts.set(b.candidate_id, (counts.get(b.candidate_id) ?? 0) + 1));
   return Object.fromEntries(counts);
 }
+
+// Section 17: "Once confirmed, the candidate list should be locked when
+// the election opens." Locked once Round 2 has actually opened or later
+// — Select/Accept/Decline/Remove must never be possible once voting has
+// started, since that would let an admin change who's on the ballot
+// while people are actively voting on it. Checked here at the API
+// level, not just hidden in the UI.
+export function isCandidateListLocked(electionStatus: string): boolean {
+  return electionStatus === "Election Open" || electionStatus === "Election Closed" || electionStatus === "Completed";
+}

@@ -2,6 +2,7 @@ import { EmptyState } from "@/lib/components/EmptyState";
 import { requireAdmin } from "@/lib/auth/guards";
 import { createClient } from "@/lib/supabase/server";
 import { isTallyVisible } from "@/lib/elections/tally";
+import { isCandidateListLocked } from "@/lib/elections/computeTally";
 import { ElectionControls } from "./ElectionControls";
 import { CandidateRow } from "./CandidateRow";
 import { NominationRankingPanel } from "./NominationRankingPanel";
@@ -72,7 +73,14 @@ export default async function ElectionDetailPage({ params }: { params: { id: str
       </div>
 
       <div className="bg-white rounded-card border border-council-navy/10 p-6 space-y-4">
-        <ElectionControls electionId={election.id} status={election.status} resultsPublished={election.results_published} approvalStatus={election.approval_status} />
+        <ElectionControls
+          electionId={election.id}
+          status={election.status}
+          resultsPublished={election.results_published}
+          approvalStatus={election.approval_status}
+          round1CloseAt={election.round1_close_at}
+          round2CloseAt={election.round2_close_at}
+        />
         <div className="pt-4 border-t border-council-navy/10 space-y-2">
           <ExtendElectionForm electionId={election.id} field="round1_close_at" label="Nomination closes" currentClosing={election.round1_close_at} />
           <ExtendElectionForm electionId={election.id} field="round2_close_at" label="Voting closes" currentClosing={election.round2_close_at} />
@@ -114,8 +122,8 @@ export default async function ElectionDetailPage({ params }: { params: { id: str
         />
       )}
 
-      <CandidateSection title="Nurse Candidates" candidates={nurseCandidates} voteCounts={voteCounts} tallyVisible={tallyVisible} />
-      <CandidateSection title="Midwife Candidates" candidates={midwifeCandidates} voteCounts={voteCounts} tallyVisible={tallyVisible} />
+      <CandidateSection title="Nurse Candidates" candidates={nurseCandidates} voteCounts={voteCounts} tallyVisible={tallyVisible} candidateListLocked={isCandidateListLocked(election.status)} />
+      <CandidateSection title="Midwife Candidates" candidates={midwifeCandidates} voteCounts={voteCounts} tallyVisible={tallyVisible} candidateListLocked={isCandidateListLocked(election.status)} />
 
       {(election.status === "Election Open" || election.status === "Election Closed" || election.status === "Completed") && (
         <>
@@ -132,11 +140,13 @@ function CandidateSection({
   candidates,
   voteCounts,
   tallyVisible,
+  candidateListLocked,
 }: {
   title: string;
   candidates: any[];
   voteCounts: Map<string, number>;
   tallyVisible: boolean;
+  candidateListLocked: boolean;
 }) {
   // Sorted by vote count when tallies are actually visible — purely
   // informational, to help whoever reviews this see the ranking clearly.
@@ -164,6 +174,7 @@ function CandidateSection({
             status={c.status}
             nominationCount={c.nomination_count ?? 1}
             votes={tallyVisible ? voteCounts.get(c.id) ?? 0 : null}
+            candidateListLocked={candidateListLocked}
           />
         ))
       )}
