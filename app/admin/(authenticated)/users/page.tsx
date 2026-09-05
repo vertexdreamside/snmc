@@ -8,7 +8,7 @@ export default async function AdminUsersPage() {
 
   const { data: users } = await supabase
     .from("admin_users")
-    .select("id, full_name, role, can_view_reports, can_manage_register, can_manage_elections, can_manage_admin_users, full_access, is_disabled")
+    .select("id, full_name, role, phone, user_type, can_view_reports, can_manage_register, can_manage_elections, can_manage_admin_users, full_access, is_disabled")
     .order("full_name");
 
   return (

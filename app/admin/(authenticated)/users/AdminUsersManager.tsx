@@ -8,6 +8,8 @@ interface AdminUserRow {
   id: string;
   full_name: string | null;
   role: string | null;
+  phone: string | null;
+  user_type: "Admin" | "Councillor";
   can_view_reports: boolean;
   can_manage_register: boolean;
   can_manage_elections: boolean;
@@ -23,47 +25,70 @@ const PERMISSION_FIELDS = [
   { key: "can_manage_admin_users", label: "Admin Users" },
 ] as const;
 
+// Admin Users and Councillors are kept as two clearly separated lists
+// (Sections 16-17) even though they share the exact same underlying
+// account mechanism — same permission model, same secure invite-link
+// creation, same disable/enable. Splitting the display is about
+// clarity for whoever's managing these accounts, not a technical
+// difference between the two account types.
 export function AdminUsersManager({ users, currentAdminId }: { users: AdminUserRow[]; currentAdminId: string }) {
   const router = useRouter();
+  const adminUsers = users.filter((u) => u.user_type === "Admin");
+  const councillors = users.filter((u) => u.user_type === "Councillor");
 
   return (
-    <div className="space-y-6">
-      <InviteForm onDone={() => router.refresh()} />
+    <div className="space-y-8">
+      <AddUserForm onDone={() => router.refresh()} />
 
-      <div className="bg-white rounded-card border border-council-navy/10 overflow-x-auto">
-        <table className="w-full font-body text-sm">
-          <thead className="bg-council-cream text-council-ink/60 text-left">
-            <tr>
-              <th className="px-4 py-3">Name / Title</th>
-              {PERMISSION_FIELDS.map((f) => (
-                <th key={f.key} className="px-3 py-3 text-center">
-                  {f.label}
-                </th>
-              ))}
-              <th className="px-3 py-3 text-center">Full Access</th>
-              <th className="px-4 py-3">Activity</th>
-              <th className="px-4 py-3 w-40"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-council-navy/10">
-            {users.map((u) => (
-              <UserRow key={u.id} user={u} isSelf={u.id === currentAdminId} onChanged={() => router.refresh()} />
-            ))}
-            {users.length === 0 && (
-              <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-council-ink/50">
-                  No admin users yet.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+      <div>
+        <h2 className="font-display text-base text-council-navy mb-3">Admin Users</h2>
+        <UsersTable users={adminUsers} currentAdminId={currentAdminId} onChanged={() => router.refresh()} emptyMessage="No admin users yet." />
       </div>
+
+      <div>
+        <h2 className="font-display text-base text-council-navy mb-3">Councillors</h2>
+        <UsersTable users={councillors} currentAdminId={currentAdminId} onChanged={() => router.refresh()} emptyMessage="No councillors added yet." />
+      </div>
+
       <p className="font-body text-xs text-council-ink/40">
         "Title" is a free-text label only (e.g. "Election Officer," "Treasurer") — it doesn't grant access on its
         own. The checkboxes are what actually control what a person can do; define whichever combination fits
         them, or toggle Full Access for unrestricted control.
       </p>
+    </div>
+  );
+}
+
+function UsersTable({ users, currentAdminId, onChanged, emptyMessage }: { users: AdminUserRow[]; currentAdminId: string; onChanged: () => void; emptyMessage: string }) {
+  return (
+    <div className="bg-white rounded-card border border-council-navy/10 overflow-x-auto">
+      <table className="w-full font-body text-sm">
+        <thead className="bg-council-cream text-council-ink/60 text-left">
+          <tr>
+            <th className="px-4 py-3">Name / Title</th>
+            {PERMISSION_FIELDS.map((f) => (
+              <th key={f.key} className="px-3 py-3 text-center">
+                {f.label}
+              </th>
+            ))}
+            <th className="px-3 py-3 text-center">Full Access</th>
+            <th className="px-4 py-3">Activity</th>
+            <th className="px-4 py-3 w-40"></th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-council-navy/10">
+          {users.map((u) => (
+            <UserRow key={u.id} user={u} isSelf={u.id === currentAdminId} onChanged={onChanged} />
+          ))}
+          {users.length === 0 && (
+            <tr>
+              <td colSpan={8} className="px-4 py-8 text-center text-council-ink/50">
+                {emptyMessage}
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -85,7 +110,7 @@ function UserRow({ user, isSelf, onChanged }: { user: AdminUserRow; isSelf: bool
   }
 
   async function handleRemove() {
-    if (!confirm(`Remove admin access for ${user.full_name ?? "this user"}?`)) return;
+    if (!confirm(`Remove access for ${user.full_name ?? "this user"}?`)) return;
     setBusy("remove");
     await fetch(`/api/admin/users/${user.id}`, { method: "DELETE" });
     setBusy(null);
@@ -116,6 +141,7 @@ function UserRow({ user, isSelf, onChanged }: { user: AdminUserRow; isSelf: bool
           placeholder="Title (optional)"
           className="mt-1 text-xs text-council-ink/60 border-b border-transparent hover:border-council-navy/20 focus:border-council-cyan outline-none bg-transparent w-full"
         />
+        {user.phone && <p className="text-xs text-council-ink/40 mt-0.5">{user.phone}</p>}
         {resetMessage && <p className="text-xs text-council-ink/50 mt-1">{resetMessage}</p>}
       </td>
       {PERMISSION_FIELDS.map((f) => (
@@ -166,10 +192,12 @@ function UserRow({ user, isSelf, onChanged }: { user: AdminUserRow; isSelf: bool
   );
 }
 
-function InviteForm({ onDone }: { onDone: () => void }) {
+function AddUserForm({ onDone }: { onDone: () => void }) {
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
   const [title, setTitle] = useState("");
+  const [phone, setPhone] = useState("");
+  const [userType, setUserType] = useState<"Admin" | "Councillor">("Admin");
   const [permissions, setPermissions] = useState({
     canViewReports: false,
     canManageRegister: false,
@@ -191,15 +219,17 @@ function InviteForm({ onDone }: { onDone: () => void }) {
     const res = await fetch("/api/admin/users", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, fullName, title, ...permissions }),
+      body: JSON.stringify({ email, fullName, title, phone, userType, ...permissions }),
     });
     const data = await res.json();
     setBusy(false);
     if (data.ok) {
-      setMessage(`Invitation sent to ${email}.`);
+      setMessage(`${email} has been sent a secure link to set up their account.`);
       setEmail("");
       setFullName("");
       setTitle("");
+      setPhone("");
+      setUserType("Admin");
       setPermissions({
         canViewReports: false,
         canManageRegister: false,
@@ -209,35 +239,36 @@ function InviteForm({ onDone }: { onDone: () => void }) {
       });
       onDone();
     } else {
-      setMessage(data.reason ?? "Could not send invitation.");
+      setMessage(data.reason ?? "Could not add this user.");
     }
   }
 
   return (
     <form onSubmit={handleSubmit} className="bg-white rounded-card border border-council-navy/10 p-6 space-y-4">
-      <h2 className="font-display text-base text-council-navy">Add a Council member</h2>
-      <div className="grid sm:grid-cols-3 gap-3">
+      <h2 className="font-display text-base text-council-navy">+ Add New User</h2>
+      <div className="grid sm:grid-cols-2 gap-3">
+        <label className="block">
+          <span className="font-body text-xs text-council-ink/60 block mb-1">User Type</span>
+          <select value={userType} onChange={(e) => setUserType(e.target.value as "Admin" | "Councillor")} className="w-full border border-council-navy/20 rounded-card px-3 py-2 font-body text-sm focus:outline-none focus:ring-2 focus:ring-council-cyan">
+            <option value="Admin">Admin</option>
+            <option value="Councillor">Councillor</option>
+          </select>
+        </label>
+        <div />
         <input
-          type="text"
-          required
-          placeholder="Full name"
-          value={fullName}
-          onChange={(e) => setFullName(e.target.value)}
+          type="text" required placeholder="Full name" value={fullName} onChange={(e) => setFullName(e.target.value)}
           className="border border-council-navy/20 rounded-card px-3 py-2 font-body text-sm focus:outline-none focus:ring-2 focus:ring-council-cyan"
         />
         <input
-          type="email"
-          required
-          placeholder="Email address"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          type="email" required placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)}
           className="border border-council-navy/20 rounded-card px-3 py-2 font-body text-sm focus:outline-none focus:ring-2 focus:ring-council-cyan"
         />
         <input
-          type="text"
-          placeholder="Title (optional, e.g. Treasurer)"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          type="tel" placeholder="Phone number (optional)" value={phone} onChange={(e) => setPhone(e.target.value)}
+          className="border border-council-navy/20 rounded-card px-3 py-2 font-body text-sm focus:outline-none focus:ring-2 focus:ring-council-cyan"
+        />
+        <input
+          type="text" placeholder="Title (optional, e.g. Treasurer)" value={title} onChange={(e) => setTitle(e.target.value)}
           className="border border-council-navy/20 rounded-card px-3 py-2 font-body text-sm focus:outline-none focus:ring-2 focus:ring-council-cyan"
         />
       </div>
@@ -245,7 +276,8 @@ function InviteForm({ onDone }: { onDone: () => void }) {
       <div>
         <p className="font-body text-xs text-council-ink/60 mb-2">
           Define this person's privileges — tick whichever combination fits, or grant Full Access for
-          unrestricted control.
+          unrestricted control. You don't need to set or manage a password — they'll receive a secure link to
+          set one up themselves.
         </p>
         <div className="flex flex-wrap gap-4">
           <label className="flex items-center gap-2 font-body text-sm">
@@ -276,7 +308,7 @@ function InviteForm({ onDone }: { onDone: () => void }) {
         disabled={busy}
         className="bg-council-navy text-white font-body text-sm font-medium rounded-card px-4 py-2 hover:bg-council-navyDeep disabled:opacity-60"
       >
-        {busy ? "Sending invitation…" : "Send Invitation"}
+        {busy ? "Adding…" : "+ Add New User"}
       </button>
       {message && <p className="font-body text-sm text-council-ink/60">{message}</p>}
     </form>
