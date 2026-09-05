@@ -75,14 +75,14 @@ export function PendingApprovalRow({
         <div className="flex items-center gap-2">
           <input
             type="text"
-            placeholder={`Comment (visible to the person) — why you're ${pendingAction === "Approved" ? "approving" : "rejecting"} this`}
+            placeholder={pendingAction === "Approved" ? "Comment (visible to the person, optional)" : "Reason for rejection (visible to the person) — required"}
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             className="flex-1 text-xs border border-council-navy/20 rounded-card px-2 py-1.5"
           />
           <button
             onClick={() => confirmStatus(pendingAction)}
-            disabled={busy}
+            disabled={busy || (pendingAction === "Rejected" && !comment.trim())}
             className={`text-xs rounded-card px-3 py-1.5 text-white disabled:opacity-60 ${pendingAction === "Approved" ? "bg-status-active" : "bg-status-closed"}`}
           >
             Confirm {pendingAction}

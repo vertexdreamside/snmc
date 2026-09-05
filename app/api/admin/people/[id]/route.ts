@@ -23,6 +23,14 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     return NextResponse.json({ ok: false, reason: "Invalid input." }, { status: 400 });
   }
 
+  // Enforced here, not just in the UI — a direct API call must not be
+  // able to reject a profile change with no explanation, per the
+  // confirmed Admin/Councillor UX requirements ("If rejecting, require:
+  // Reason for rejection").
+  if (parsed.data.action === "reject" && !parsed.data.comment?.trim()) {
+    return NextResponse.json({ ok: false, reason: "A reason for rejection is required." }, { status: 400 });
+  }
+
   const supabase = createServiceRoleClient();
   let update: Record<string, unknown> = {};
   let action = "";
