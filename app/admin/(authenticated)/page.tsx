@@ -11,14 +11,14 @@ const INACTIVE_STATUSES = ["Not Practising", "Retired", "Abroad", "Unknown"];
 
 // Council Management Dashboard (per the confirmed platform requirements
 // document) — real statistics computed from the live register, not a
-// raw table view. Two things are deliberately NOT shown here, flagged
-// rather than faked: "Suspended" isn't a status this register actually
-// tracks (registration_status has no Suspended value — Practising, Not
+// raw table view. One thing deliberately NOT shown here, flagged rather
+// than faked: "Suspended" isn't a status this register actually tracks
+// (registration_status has no Suspended value — Practising, Not
 // Practising, Retired, Abroad, Deceased, Deleted, Unknown are the only
-// real values), and "Pending Licence Renewals" / "Renewals This Year"
-// aren't tracked yet because there's no renewal-application workflow
-// built (licence documents can be uploaded/approved, but a distinct
-// "renewal application" entity with its own history doesn't exist yet).
+// real values). "Pending Licence Renewals" and "Renewals This Year" ARE
+// now real, computed from license_renewals (Section 5's renewal
+// workflow) — they weren't available when this dashboard was first
+// built, before that table existed.
 export default async function AdminDashboard() {
   const admin = await requireAdmin();
   const supabase = createClient();
@@ -35,6 +35,8 @@ export default async function AdminDashboard() {
     { count: unconfirmedCategory },
     { count: newThisYear },
     { count: pendingCandidateDecisions },
+    { count: pendingRenewals },
+    { count: renewalsThisYear },
     statusCounts,
     fullRegisterForBreakdowns,
   ] = await Promise.all([
@@ -53,6 +55,12 @@ export default async function AdminDashboard() {
       : Promise.resolve({ count: 0 }),
     showElections
       ? supabase.from("candidates").select("*", { count: "exact", head: true }).eq("status", "Pending")
+      : Promise.resolve({ count: 0 }),
+    showRegister
+      ? supabase.from("license_renewals").select("*", { count: "exact", head: true }).eq("status", "Pending")
+      : Promise.resolve({ count: 0 }),
+    showRegister
+      ? supabase.from("license_renewals").select("*", { count: "exact", head: true }).eq("status", "Approved").gte("reviewed_at", yearStart)
       : Promise.resolve({ count: 0 }),
     showRegister
       ? Promise.all(
@@ -130,6 +138,8 @@ export default async function AdminDashboard() {
               <StatCard icon={FileX} value={expiredLicenceCount} label="Expired Licences" />
               <StatCard icon={Clock} value={expiringSoonCount} label="Licences Expiring Soon" />
               <StatCard icon={ClipboardCheck} value={pendingReview ?? 0} label="Pending Approvals" />
+              <StatCard icon={ClipboardCheck} value={pendingRenewals ?? 0} label="Pending Licence Renewals" />
+              <StatCard icon={UserPlus} value={renewalsThisYear ?? 0} label="Renewals This Year" />
               <StatCard icon={ShieldQuestion} value={unconfirmedCategory ?? 0} label="Category Not Confirmed" />
             </>
           )}

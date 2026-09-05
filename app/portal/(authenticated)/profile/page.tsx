@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ProfileForm } from "./ProfileForm";
 import { categoryDisplay } from "@/lib/licenses";
 import { AlertTriangle } from "lucide-react";
+import { RenewalRequestForm } from "./RenewalRequestForm";
 
 const REMINDER_WINDOW_DAYS = 90;
 
@@ -102,6 +103,8 @@ export default async function ProfilePage() {
           <dd>{person.profile_status}</dd>
         </dl>
       </section>
+
+      <RenewalRequestForm hasNurse={!!person.nurse_reg_no} hasMidwife={!!person.midwife_reg_no} />
 
       <ProfileForm person={person} />
     </div>

@@ -28,6 +28,15 @@ export default async function PersonDetailPage({ params }: { params: { id: strin
     .eq("person_id", params.id)
     .order("created_at", { ascending: false });
 
+  // Renewal history (Section 5) — every renewal request ever made for
+  // this person, approved or not, retained permanently rather than only
+  // showing the current expiry date.
+  const { data: renewalHistory } = await supabase
+    .from("license_renewals")
+    .select("id, license_type, previous_expiry_date, requested_expiry_date, status, submitted_at, reviewed_at, review_comment")
+    .eq("person_id", params.id)
+    .order("submitted_at", { ascending: false });
+
   // Registration/approval/audit history (Section 2 of the platform
   // requirements) — pulled from the same audit_log every admin action
   // and self-service edit already writes to, covering both directions:
@@ -83,6 +92,29 @@ export default async function PersonDetailPage({ params }: { params: { id: strin
       </div>
 
       <SpecialLicensesSection personId={person.id} licenses={specialLicenses ?? []} />
+
+      {renewalHistory && renewalHistory.length > 0 && (
+        <div className="bg-white rounded-card border border-council-navy/10 p-6">
+          <h2 className="font-display text-base text-council-navy mb-4">Renewal History</h2>
+          <ul className="space-y-2">
+            {renewalHistory.map((r) => (
+              <li key={r.id} className="font-body text-sm border-l-2 border-council-navy/10 pl-3">
+                <p>
+                  {r.license_type}: {r.previous_expiry_date ?? "—"} → {r.requested_expiry_date}{" "}
+                  <span className={r.status === "Approved" ? "text-status-active" : r.status === "Rejected" ? "text-status-closed" : "text-status-pending"}>
+                    ({r.status})
+                  </span>
+                </p>
+                <p className="text-xs text-council-ink/40">
+                  Submitted {new Date(r.submitted_at).toLocaleDateString()}
+                  {r.reviewed_at && ` · Reviewed ${new Date(r.reviewed_at).toLocaleDateString()}`}
+                  {r.review_comment && ` · "${r.review_comment}"`}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <HistorySection entries={history ?? []} />
     </div>
