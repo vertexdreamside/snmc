@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import * as XLSX from "xlsx";
 import { ALLOWED_REGISTER_FIELDS, AGE_GROUPS, LICENSE_STATUSES } from "@/lib/reports";
 
 const FIELD_LABELS: Record<string, string> = {
@@ -47,6 +48,8 @@ export function ReportBuilder() {
   const [subFilters, setSubFilters] = useState<Record<string, Set<string>>>({});
   const [status, setStatus] = useState("");
   const [category, setCategory] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [rows, setRows] = useState<Record<string, string>[] | null>(null);
   const [fields, setFields] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -82,6 +85,8 @@ export function ReportBuilder() {
     const params = new URLSearchParams({ fields: Array.from(selected).join(",") });
     if (status) params.set("status", status);
     if (category) params.set("category", category);
+    if (dateFrom) params.set("dateFrom", dateFrom);
+    if (dateTo) params.set("dateTo", dateTo);
     for (const [fieldKey, def] of Object.entries(SUB_FILTERS)) {
       const values = subFilters[fieldKey];
       if (values && values.size > 0 && values.size < def.options.length) {
@@ -110,6 +115,30 @@ export function ReportBuilder() {
     a.download = "snmc-register-report.csv";
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  // Real .xlsx generation (same library/pattern as the Data Export
+  // module) rather than a CSV renamed to .xlsx — opens correctly in
+  // Excel with proper column headers, not a plain-text file in disguise.
+  function exportExcel() {
+    if (!rows) return;
+    const labeledRows = rows.map((row) => {
+      const labeled: Record<string, string> = {};
+      for (const f of fields) labeled[FIELD_OPTIONS.find((o) => o.key === f)?.label ?? f] = row[f] ?? "";
+      return labeled;
+    });
+    const ws = XLSX.utils.json_to_sheet(labeledRows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Report");
+    XLSX.writeFile(wb, "snmc-register-report.xlsx");
+  }
+
+  // Uses the browser's own print dialog, which every browser can save
+  // as a PDF — a dedicated PDF library isn't needed for a straightforward
+  // tabular report, and this respects whatever page size/margins the
+  // person printing actually wants.
+  function printReport() {
+    window.print();
   }
 
   return (
@@ -155,13 +184,29 @@ export function ReportBuilder() {
             <option value="Midwife">Midwife</option>
             <option value="Both">Both</option>
           </select>
+          <label className="flex items-center gap-1 font-body text-xs text-council-ink/60">
+            Registered from
+            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="border border-council-navy/20 rounded-card px-2 py-1.5 text-sm" />
+          </label>
+          <label className="flex items-center gap-1 font-body text-xs text-council-ink/60">
+            to
+            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="border border-council-navy/20 rounded-card px-2 py-1.5 text-sm" />
+          </label>
           <button onClick={generate} disabled={loading || selected.size === 0} className="bg-council-navy text-white font-body text-sm font-medium rounded-card px-4 py-2 hover:bg-council-navyDeep disabled:opacity-60">
             {loading ? "Generating…" : "Generate Report"}
           </button>
           {rows && (
-            <button onClick={exportCsv} className="border border-council-navy/20 font-body text-sm font-medium rounded-card px-4 py-2">
-              Export CSV
-            </button>
+            <>
+              <button onClick={exportCsv} className="border border-council-navy/20 font-body text-sm font-medium rounded-card px-4 py-2">
+                Export CSV
+              </button>
+              <button onClick={exportExcel} className="border border-council-navy/20 font-body text-sm font-medium rounded-card px-4 py-2">
+                Export Excel
+              </button>
+              <button onClick={printReport} className="border border-council-navy/20 font-body text-sm font-medium rounded-card px-4 py-2">
+                Print / PDF
+              </button>
+            </>
           )}
         </div>
       </div>

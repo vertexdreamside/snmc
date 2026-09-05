@@ -32,6 +32,8 @@ export async function GET(request: Request) {
 
   const status = searchParams.get("status");
   const category = searchParams.get("category");
+  const dateFrom = searchParams.get("dateFrom");
+  const dateTo = searchParams.get("dateTo");
   const sexFilter = searchParams.get("sexFilter")?.split(",").filter(Boolean) ?? [];
   const ageGroupFilter = searchParams.get("ageGroupFilter")?.split(",").filter(Boolean) ?? [];
   const employmentSectorFilter = searchParams.get("employmentSectorFilter")?.split(",").filter(Boolean) ?? [];
@@ -54,6 +56,8 @@ export async function GET(request: Request) {
   let query = supabase.from("people").select(selectColumns.join(",")).order("last_name").limit(2000);
   if (status) query = query.eq("registration_status", status);
   if (category) query = query.eq("professional_category", category);
+  if (dateFrom) query = query.gte("created_at", dateFrom);
+  if (dateTo) query = query.lte("created_at", dateTo);
   if (sexFilter.length > 0) query = query.in("sex", sexFilter);
   if (employmentSectorFilter.length > 0) query = query.in("employment_sector", employmentSectorFilter);
   if (serviceCategoryFilter.length > 0) query = query.in("service_category", serviceCategoryFilter);
