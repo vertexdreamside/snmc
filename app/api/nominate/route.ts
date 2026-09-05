@@ -77,7 +77,19 @@ export async function POST(request: Request) {
   });
 
   if (nominationError) {
-    if ((nominationError as { code?: string }).code === "23505") {
+    const err = nominationError as { code?: string; message?: string };
+    if (err.code === "23505") {
+      // Two different constraints can trigger this — distinguish which
+      // one so the message is actually accurate. The new one-per-voter
+      // rule is the far more likely case now (Section 10 of the
+      // confirmed election rules): a voter gets exactly one nomination
+      // per round, not one per candidate.
+      if (err.message?.includes("nominations_one_per_voter_per_category")) {
+        return NextResponse.json(
+          { ok: false, reason: "You've already submitted your nomination for this round. You cannot submit another nomination during this nomination round." },
+          { status: 409 }
+        );
+      }
       return NextResponse.json({ ok: false, reason: "You've already nominated this candidate." }, { status: 409 });
     }
     return NextResponse.json({ ok: false, reason: "Could not submit the nomination." }, { status: 500 });

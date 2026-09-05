@@ -39,6 +39,17 @@ export default async function NominatePage({ params }: { params: { electionId: s
     (c) => isEligible(person, c).eligible
   );
 
+  // Section 10 of the confirmed Elections & Voting module: one
+  // nomination per voter per category, not one per candidate — checked
+  // here so the form can be disabled up front, not just after a failed
+  // submission attempt.
+  const { data: alreadySubmitted } = await supabase
+    .from("nominations")
+    .select("category")
+    .eq("election_id", election.id)
+    .eq("nominated_by", person.id);
+  const submittedCategories = new Set((alreadySubmitted ?? []).map((n) => n.category));
+
   return (
     <div className="max-w-xl mx-auto space-y-6">
       <div>
@@ -55,7 +66,7 @@ export default async function NominatePage({ params }: { params: { electionId: s
           backLabel="← Back to portal"
         />
       ) : (
-        <NominationForm electionId={election.id} eligibleCategories={eligibleCategories} />
+        <NominationForm electionId={election.id} eligibleCategories={eligibleCategories} submittedCategories={Array.from(submittedCategories)} />
       )}
     </div>
   );

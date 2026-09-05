@@ -18,20 +18,22 @@ interface CandidateResult {
 export function NominationForm({
   electionId,
   eligibleCategories,
+  submittedCategories,
 }: {
   electionId: string;
   eligibleCategories: ("Nurse" | "Midwife")[];
+  submittedCategories: string[];
 }) {
   return (
     <div className="space-y-6">
       {eligibleCategories.map((category) => (
-        <CategorySection key={category} electionId={electionId} category={category} />
+        <CategorySection key={category} electionId={electionId} category={category} alreadySubmitted={submittedCategories.includes(category)} />
       ))}
     </div>
   );
 }
 
-function CategorySection({ electionId, category }: { electionId: string; category: "Nurse" | "Midwife" }) {
+function CategorySection({ electionId, category, alreadySubmitted }: { electionId: string; category: "Nurse" | "Midwife"; alreadySubmitted: boolean }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<CandidateResult[]>([]);
   const [selected, setSelected] = useState<CandidateResult | null>(null);
@@ -77,14 +79,16 @@ function CategorySection({ electionId, category }: { electionId: string; categor
     setStatus("done");
   }
 
-  if (status === "done") {
+  if (status === "done" || alreadySubmitted) {
     return (
       <section className="bg-white rounded-card border border-status-active/30 p-6">
         <h2 className="font-display text-lg text-council-navy mb-1">
           Registered Licensed {category.toUpperCase()} Candidate
         </h2>
         <p className="font-body text-sm text-status-active">
-          Nomination submitted for {selected?.first_name} {selected?.last_name}.
+          {status === "done" && selected
+            ? `Nomination submitted for ${selected.first_name} ${selected.last_name}.`
+            : "Your nomination has been submitted successfully. You cannot submit another nomination during this nomination round."}
         </p>
       </section>
     );
