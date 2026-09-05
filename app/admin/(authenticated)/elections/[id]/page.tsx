@@ -11,6 +11,7 @@ import { ElectionMonitor } from "./ElectionMonitor";
 import { ExtendElectionForm } from "./ExtendElectionForm";
 import { ElectionSummary } from "./ElectionSummary";
 import { ApprovalPanel } from "./ApprovalPanel";
+import { ElectionStageStepper } from "./ElectionStageStepper";
 import { IntegrityCheck } from "./IntegrityCheck";
 import { DisputeRecountPanel } from "./DisputeRecountPanel";
 
@@ -71,6 +72,8 @@ export default async function ElectionDetailPage({ params }: { params: { id: str
         <h1 className="font-display text-2xl text-council-navy">{election.term_label}</h1>
         <p className="font-body text-sm text-council-ink/50 mt-1">{participationCount ?? 0} ballots cast so far</p>
       </div>
+
+      <ElectionStageStepper election={election} />
 
       <div className="bg-white rounded-card border border-council-navy/10 p-6 space-y-4">
         <ElectionControls
