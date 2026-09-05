@@ -8,6 +8,7 @@ import { NominationRankingPanel } from "./NominationRankingPanel";
 import { VoterParticipation } from "./VoterParticipation";
 import { ElectionMonitor } from "./ElectionMonitor";
 import { ExtendElectionForm } from "./ExtendElectionForm";
+import { ElectionSummary } from "./ElectionSummary";
 
 export default async function ElectionDetailPage({ params }: { params: { id: string } }) {
   await requireAdmin();
@@ -67,8 +68,19 @@ export default async function ElectionDetailPage({ params }: { params: { id: str
         <NominationRankingPanel electionId={election.id} />
       )}
 
-      {(election.status === "Election Open" || election.status === "Election Closed") && (
+      {/* Completed was previously excluded here, which meant the final
+          turnout summary disappeared entirely right when it matters
+          most — after the election is actually done. */}
+      {(election.status === "Election Open" || election.status === "Election Closed" || election.status === "Completed") && (
         <ElectionMonitor election={election} />
+      )}
+
+      {election.status === "Completed" && (
+        <ElectionSummary
+          nurseCandidates={nurseCandidates}
+          midwifeCandidates={midwifeCandidates}
+          voteCounts={voteCounts}
+        />
       )}
 
       <CandidateSection title="Nurse Candidates" candidates={nurseCandidates} voteCounts={voteCounts} tallyVisible={tallyVisible} />
@@ -95,13 +107,25 @@ function CandidateSection({
   voteCounts: Map<string, number>;
   tallyVisible: boolean;
 }) {
+  // Sorted by vote count when tallies are actually visible — purely
+  // informational, to help whoever reviews this see the ranking clearly.
+  // Deliberately doesn't auto-declare a winner: the "Mark Elected" /
+  // "Not Elected" buttons on each row are still a manual admin decision,
+  // consistent with how nomination ranking flags ties instead of
+  // resolving them — the Council's actual composition rule (how many
+  // seats per category) was never confirmed to this system, so it
+  // can't safely decide that on its own.
+  const sorted = tallyVisible
+    ? [...candidates].sort((a, b) => (voteCounts.get(b.id) ?? 0) - (voteCounts.get(a.id) ?? 0))
+    : candidates;
+
   return (
     <div className="bg-white rounded-card border border-council-navy/10 overflow-hidden">
       <h2 className="font-display text-base text-council-navy px-4 pt-4 pb-2">{title}</h2>
-      {candidates.length === 0 ? (
+      {sorted.length === 0 ? (
         <p className="px-4 pb-6 font-body text-sm text-council-ink/50">No candidates yet.</p>
       ) : (
-        candidates.map((c) => (
+        sorted.map((c) => (
           <CandidateRow
             key={c.id}
             candidateId={c.id}

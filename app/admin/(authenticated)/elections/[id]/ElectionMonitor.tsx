@@ -57,7 +57,7 @@ export async function ElectionMonitor({ election }: { election: { id: string; st
           <div key={category}>
             <div className="flex items-center justify-between mb-1">
               <span className="font-body text-sm font-medium text-council-navy flex items-center gap-1.5"><Users size={13} className="text-council-ink/40" aria-hidden="true" /> {category}</span>
-              <span className="font-body text-xs text-council-ink/60">{voted} of {eligible} voted ({pct}%)</span>
+              <span className="font-body text-xs text-council-ink/60">{voted} of {eligible} voted ({pct}%) · {Math.max(0, eligible - voted)} not cast</span>
             </div>
             <div className="h-2 bg-council-cream rounded-full overflow-hidden">
               <div className="h-full bg-council-cyan rounded-full transition-all" style={{ width: `${pct}%` }} />
