@@ -25,7 +25,7 @@ export default async function PersonDetailPage({ params }: { params: { id: strin
 
   const { data: specialLicenses } = await supabase
     .from("special_licenses")
-    .select("id, license_name, license_number, issued_date, expiry_date, status, source")
+    .select("id, license_name, license_number, issued_date, expiry_date, status, source, document_path")
     .eq("person_id", params.id)
     .order("created_at", { ascending: false });
 

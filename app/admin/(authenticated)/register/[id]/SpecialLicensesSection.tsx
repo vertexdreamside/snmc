@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Award, Plus, X } from "lucide-react";
+import { Award, Plus, X, Check, FileText, Upload } from "lucide-react";
 
 interface SpecialLicense {
   id: string;
@@ -10,27 +10,35 @@ interface SpecialLicense {
   license_number: string | null;
   issued_date: string | null;
   expiry_date: string | null;
+  status: "Pending" | "Approved" | "Rejected";
+  source: "self" | "admin";
+  document_path: string | null;
 }
 
 // Additional specialised licences/certifications a person may hold
 // beyond their base Nurse/Midwife registration — e.g. Critical Care,
 // Anaesthetic, Public Health. A person can hold several, hence its own
 // section and its own table rather than more columns on people.
+//
+// Section 13.7/13.8: a self-submitted special licence goes through the
+// same approval workflow as any other profile change — it enters as
+// Pending and stays there until reviewed here, never applied
+// immediately the way an admin adding one directly is.
 export function SpecialLicensesSection({ personId, licenses }: { personId: string; licenses: SpecialLicense[] }) {
   const router = useRouter();
   const [showForm, setShowForm] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
   const [form, setForm] = useState({ licenseName: "", licenseNumber: "", issuedDate: "", expiryDate: "" });
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
-    setBusy(true);
+    setBusy("add");
     await fetch(`/api/admin/people/${personId}/special-licenses`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
     });
-    setBusy(false);
+    setBusy(null);
     setForm({ licenseName: "", licenseNumber: "", issuedDate: "", expiryDate: "" });
     setShowForm(false);
     router.refresh();
@@ -40,6 +48,32 @@ export function SpecialLicensesSection({ personId, licenses }: { personId: strin
     if (!confirm("Remove this special licence?")) return;
     await fetch(`/api/admin/special-licenses/${id}`, { method: "DELETE" });
     router.refresh();
+  }
+
+  async function handleReview(id: string, status: "Approved" | "Rejected") {
+    setBusy(id);
+    await fetch(`/api/admin/special-licenses/${id}/review`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    setBusy(null);
+    router.refresh();
+  }
+
+  async function handleUploadDocument(id: string, file: File) {
+    setBusy(id);
+    const formData = new FormData();
+    formData.append("file", file);
+    await fetch(`/api/admin/special-licenses/${id}/document`, { method: "POST", body: formData });
+    setBusy(null);
+    router.refresh();
+  }
+
+  async function handleViewDocument(id: string) {
+    const res = await fetch(`/api/admin/special-licenses/${id}/view-url`);
+    const data = await res.json();
+    if (data.ok) window.open(data.url, "_blank", "noopener,noreferrer");
   }
 
   return (
@@ -79,8 +113,8 @@ export function SpecialLicensesSection({ personId, licenses }: { personId: strin
             Expiry
             <input type="date" value={form.expiryDate} onChange={(e) => setForm({ ...form, expiryDate: e.target.value })} className="w-full border border-council-navy/20 rounded-card px-2 py-1.5 text-sm mt-0.5" />
           </label>
-          <button type="submit" disabled={busy} className="col-span-2 bg-council-navy text-white text-xs font-medium rounded-card py-1.5 disabled:opacity-60">
-            {busy ? "Adding…" : "Add Licence"}
+          <button type="submit" disabled={busy === "add"} className="col-span-2 bg-council-navy text-white text-xs font-medium rounded-card py-1.5 disabled:opacity-60">
+            {busy === "add" ? "Adding…" : "Add Licence"}
           </button>
         </form>
       )}
@@ -90,22 +124,79 @@ export function SpecialLicensesSection({ personId, licenses }: { personId: strin
       ) : (
         <ul className="space-y-2">
           {licenses.map((l) => (
-            <li key={l.id} className="flex items-center justify-between bg-council-cream rounded-card px-3 py-2 text-sm">
-              <div>
-                <p className="font-medium text-council-navy">{l.license_name}</p>
-                <p className="text-xs text-council-ink/50">
-                  {l.license_number && `${l.license_number} · `}
-                  {l.issued_date && `Issued ${l.issued_date}`}
-                  {l.expiry_date && ` · Expires ${l.expiry_date}`}
-                </p>
+            <li key={l.id} className="bg-council-cream rounded-card px-3 py-2 text-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium text-council-navy">
+                    {l.license_name}
+                    {l.status === "Pending" && <span className="ml-2 text-xs text-status-pending font-medium">Pending Approval{l.source === "self" ? " — submitted by nurse/midwife" : ""}</span>}
+                    {l.status === "Rejected" && <span className="ml-2 text-xs text-status-closed font-medium">Rejected</span>}
+                  </p>
+                  <p className="text-xs text-council-ink/50">
+                    {l.license_number && `${l.license_number} · `}
+                    {l.issued_date && `Issued ${l.issued_date}`}
+                    {l.expiry_date && ` · Expires ${l.expiry_date}`}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0 ml-3">
+                  <SpecialLicenseDocCell licenseId={l.id} hasDocument={!!l.document_path} onUpload={handleUploadDocument} onView={handleViewDocument} busy={busy === l.id} />
+                  {l.status === "Pending" && (
+                    <>
+                      <button onClick={() => handleReview(l.id, "Approved")} disabled={busy === l.id} className="text-status-active" title="Approve"><Check size={16} aria-hidden="true" /></button>
+                      <button onClick={() => handleReview(l.id, "Rejected")} disabled={busy === l.id} className="text-status-closed" title="Reject"><X size={16} aria-hidden="true" /></button>
+                    </>
+                  )}
+                  <button onClick={() => handleRemove(l.id)} className="text-council-ink/40" title="Remove">
+                    <X size={14} aria-hidden="true" />
+                  </button>
+                </div>
               </div>
-              <button onClick={() => handleRemove(l.id)} className="text-status-closed">
-                <X size={14} aria-hidden="true" />
-              </button>
             </li>
           ))}
         </ul>
       )}
     </div>
+  );
+}
+
+function SpecialLicenseDocCell({
+  licenseId,
+  hasDocument,
+  onUpload,
+  onView,
+  busy,
+}: {
+  licenseId: string;
+  hasDocument: boolean;
+  onUpload: (id: string, file: File) => void;
+  onView: (id: string) => void;
+  busy: boolean;
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  if (hasDocument) {
+    return (
+      <button onClick={() => onView(licenseId)} className="flex items-center gap-1 text-xs text-council-cyan underline" title="View document">
+        <FileText size={14} aria-hidden="true" />
+      </button>
+    );
+  }
+
+  return (
+    <>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".pdf,.jpg,.jpeg,.png,.webp"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) onUpload(licenseId, file);
+        }}
+      />
+      <button onClick={() => fileInputRef.current?.click()} disabled={busy} className="text-council-ink/40 disabled:opacity-60" title="Upload document">
+        <Upload size={14} aria-hidden="true" />
+      </button>
+    </>
   );
 }

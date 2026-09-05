@@ -38,9 +38,17 @@ export default async function ProfilePage() {
   const person = await requirePortalUser();
   const supabase = createClient();
 
+  // Only ever checked as a boolean, never fetched or shown as a value —
+  // this determines whether NIN can be skipped this time (Section 13.4:
+  // NIN is mandatory before the profile is "complete," but someone who
+  // already has one on file shouldn't be forced to re-type it on every
+  // unrelated edit).
+  const { data: ninCheck } = await supabase.from("people").select("nin").eq("id", person.id).single();
+  const hasNinOnFile = !!ninCheck?.nin && ninCheck.nin.trim() !== "";
+
   const { data: specialLicenses } = await supabase
     .from("special_licenses")
-    .select("id, license_name, license_number, issued_date, expiry_date")
+    .select("id, license_name, license_number, issued_date, expiry_date, status, source, document_path")
     .eq("person_id", person.id)
     .order("created_at", { ascending: false });
 
@@ -60,6 +68,42 @@ export default async function ProfilePage() {
     .limit(1)
     .maybeSingle();
 
+  // Section 13.8: per-field pending status ("NIN: Change submitted –
+  // Pending Approval") rather than one blanket status. Only meaningful
+  // while profile_status is still Pending Review — once approved or
+  // rejected, latestReview above already covers the outcome.
+  let pendingFields: string[] = [];
+  if (person.profile_status === "Pending Review") {
+    const { data: pendingEdit } = await supabase
+      .from("audit_log")
+      .select("details")
+      .eq("target_id", person.id)
+      .eq("action", "self_service_profile_update")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    pendingFields = pendingEdit?.details?.changes ? Object.keys(pendingEdit.details.changes) : [];
+  }
+  const pendingSpecialLicenses = (specialLicenses ?? []).filter((l) => l.status === "Pending" && l.source === "self");
+
+  // Section 13.10: what's missing for the profile to be considered
+  // complete/up to date — matches the Council dashboard's own
+  // "Category Not Confirmed" style of counting real gaps, not a
+  // cosmetic percentage.
+  const missingItems: string[] = [];
+  if (!hasNinOnFile) missingItems.push("NIN has not been provided");
+  if (!person.category_confirmed) missingItems.push("Nurse/Midwife category not yet confirmed by the Council");
+  if (!person.employer) missingItems.push("Employer information is missing");
+  if (!person.place_of_work) missingItems.push("Place of work is missing");
+  const profileComplete = missingItems.length === 0;
+
+  const FIELD_LABELS: Record<string, string> = {
+    first_name: "First Name", last_name: "Last Name", sex: "Sex", date_of_birth: "Date of Birth", nin: "NIN",
+    address_line1: "Address", phone_home: "Home Phone", phone_mobile: "Mobile", employer: "Employer",
+    place_of_work: "Place of Work", employment_sector: "Employment Sector", service_category: "Service Category",
+    training_institute: "Training Institute",
+  };
+
   return (
     <div className="max-w-xl mx-auto space-y-6">
       <div>
@@ -68,6 +112,37 @@ export default async function ProfilePage() {
           {person.first_name} {person.last_name}
         </p>
       </div>
+
+      <section className={`rounded-card p-4 border ${profileComplete ? "bg-status-active/5 border-status-active/20" : "bg-status-pending/5 border-status-pending/20"}`}>
+        <p className="font-body text-sm font-medium text-council-navy">
+          {profileComplete ? "🟢 Profile Up to Date" : "🟠 Profile Requires Update"}
+        </p>
+        {!profileComplete && (
+          <ul className="mt-2 space-y-0.5">
+            {missingItems.map((item) => (
+              <li key={item} className="font-body text-xs text-council-ink/60">• {item}</li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {(pendingFields.length > 0 || pendingSpecialLicenses.length > 0) && (
+        <section className="bg-council-cyan/5 border border-council-cyan/20 rounded-card p-4">
+          <p className="font-body text-sm font-medium text-council-navy mb-2">Pending Changes</p>
+          <ul className="space-y-0.5">
+            {pendingFields.map((field) => (
+              <li key={field} className="font-body text-xs text-council-ink/60">
+                <span className="font-medium">{FIELD_LABELS[field] ?? field}:</span> Change submitted – Pending Approval
+              </li>
+            ))}
+            {pendingSpecialLicenses.map((l) => (
+              <li key={l.id} className="font-body text-xs text-council-ink/60">
+                <span className="font-medium">Special Licence ({l.license_name}):</span> New licence submitted – Pending Approval
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {expiryWarning && (
         <section className={`rounded-card p-4 border ${expiryWarning.expired ? "bg-status-closed/10 border-status-closed/30" : "bg-status-pending/10 border-status-pending/30"}`}>
@@ -113,7 +188,7 @@ export default async function ProfilePage() {
 
       <RenewalRequestForm hasNurse={!!person.nurse_reg_no} hasMidwife={!!person.midwife_reg_no} />
 
-      <ProfileForm person={person} specialLicenses={specialLicenses ?? []} />
+      <ProfileForm person={person} specialLicenses={specialLicenses ?? []} hasNinOnFile={hasNinOnFile} />
     </div>
   );
 }

@@ -21,15 +21,15 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 const createPersonSchema = z.object({
   first_name: z.string().min(1, "First name is required"),
   last_name: z.string().min(1, "Last name is required"),
-  sex: z.enum(["M", "F", "Unknown"]).default("Unknown"),
+  sex: z.enum(["M", "F"]),
   nin: z.string().min(1, "N.I.N is required"),
   email: z.string().email("Enter a valid email address").optional().or(z.literal("")),
   nurse_reg_no: z.string().optional().default(""),
   midwife_reg_no: z.string().optional().default(""),
-  professional_category: z.enum(["Nurse", "Midwife", "Both"]).optional(),
+  professional_category: z.enum(["Nurse", "Midwife", "Both"]),
   registration_status: z
-    .enum(["Practising", "Not Practising", "Retired", "Abroad", "Deceased", "Deleted", "Unknown"])
-    .default("Unknown"),
+    .enum(["Practising", "Not Practising", "Retired", "Abroad", "Deceased"])
+    .default("Practising"),
   is_deceased: z.boolean().default(false),
   employer: z.string().optional().default(""),
   place_of_work: z.string().optional().default(""),

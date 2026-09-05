@@ -24,6 +24,12 @@ export const ALLOWED_REGISTER_FIELDS = [
 
 export type AgeGroupLabel = "Under 30" | "30–39" | "40–49" | "50–59" | "60 and over" | "Unknown";
 export const AGE_GROUPS: AgeGroupLabel[] = ["Under 30", "30–39", "40–49", "50–59", "60 and over", "Unknown"];
+// For report filters specifically — "Unknown" isn't a real age range to
+// filter by, it's missing data. Excluded here so Reports can't present
+// it as a normal selectable category, while AGE_GROUPS above still
+// includes it for places that legitimately need to count/flag missing
+// DOB as its own thing (e.g. the dashboard's age distribution chart).
+export const SELECTABLE_AGE_GROUPS: AgeGroupLabel[] = ["Under 30", "30–39", "40–49", "50–59", "60 and over"];
 
 export type LicenseStatusLabel = "Expired" | "Expiring Soon" | "Valid" | "Not on File";
 export const LICENSE_STATUSES: LicenseStatusLabel[] = ["Expired", "Expiring Soon", "Valid", "Not on File"];

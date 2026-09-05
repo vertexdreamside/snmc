@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import * as XLSX from "xlsx";
-import { ALLOWED_REGISTER_FIELDS, AGE_GROUPS, LICENSE_STATUSES } from "@/lib/reports";
+import { ALLOWED_REGISTER_FIELDS, SELECTABLE_AGE_GROUPS, LICENSE_STATUSES } from "@/lib/reports";
 
 const FIELD_LABELS: Record<string, string> = {
   first_name: "First Name",
@@ -20,7 +20,7 @@ const FIELD_LABELS: Record<string, string> = {
   training_institute: "Training Institute",
   nurse_license_expiry: "Nurse Licence Expiry",
   midwife_license_expiry: "Midwife Licence Expiry",
-  age_group: "Age Group",
+  age_group: "Age",
   license_status: "Licence Status",
 };
 
@@ -34,10 +34,10 @@ const DEFAULT_FIELDS = ["first_name", "last_name", "nurse_reg_no", "midwife_reg_
 // already has top-level dropdowns for those — a second, field-level
 // filter for the same thing would just be confusing duplication.
 const SUB_FILTERS: Record<string, { param: string; options: string[] }> = {
-  sex: { param: "sexFilter", options: ["M", "F", "Unknown"] },
-  age_group: { param: "ageGroupFilter", options: AGE_GROUPS },
+  sex: { param: "sexFilter", options: ["M", "F"] },
+  age_group: { param: "ageGroupFilter", options: SELECTABLE_AGE_GROUPS },
   employment_sector: { param: "employmentSectorFilter", options: ["Government", "Private"] },
-  service_category: { param: "serviceCategoryFilter", options: ["Hospital", "Community", "Private", "Unspecified"] },
+  service_category: { param: "serviceCategoryFilter", options: ["Hospital", "Community", "Private"] },
   profile_status: { param: "profileStatusFilter", options: ["Approved", "Pending Review", "Rejected"] },
   license_status: { param: "licenseStatusFilter", options: LICENSE_STATUSES },
 };

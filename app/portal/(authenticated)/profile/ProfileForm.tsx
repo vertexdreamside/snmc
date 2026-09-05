@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import type { Person } from "@/lib/types/database";
-import { CheckCircle2, ArrowLeft, ArrowRight } from "lucide-react";
+import { CheckCircle2, ArrowLeft, ArrowRight, Plus } from "lucide-react";
 
 interface SpecialLicense {
   id: string;
@@ -10,6 +11,17 @@ interface SpecialLicense {
   license_number: string | null;
   issued_date: string | null;
   expiry_date: string | null;
+  status: "Pending" | "Approved" | "Rejected";
+  source: "self" | "admin";
+  document_path: string | null;
+}
+
+function specialLicenseExpiryStatus(expiryDate: string | null): "Active" | "Expiring Soon" | "Expired" | null {
+  if (!expiryDate) return null;
+  const days = Math.floor((new Date(expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  if (days < 0) return "Expired";
+  if (days <= 90) return "Expiring Soon";
+  return "Active";
 }
 
 const STEPS = ["Personal", "Contact", "Professional", "Licence", "Special Licences", "Review"] as const;
@@ -21,7 +33,8 @@ const STEPS = ["Personal", "Contact", "Professional", "Licence", "Special Licenc
 // afterward. Licence number and expiry are shown READ-ONLY here (not
 // editable) — see the API route's comment for why: editing them here
 // used to quietly bypass the dedicated Licence Renewal workflow.
-export function ProfileForm({ person, specialLicenses }: { person: Omit<Person, "nin" | "notes">; specialLicenses: SpecialLicense[] }) {
+export function ProfileForm({ person, specialLicenses, hasNinOnFile }: { person: Omit<Person, "nin" | "notes">; specialLicenses: SpecialLicense[]; hasNinOnFile: boolean }) {
+  const router = useRouter();
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
     first_name: person.first_name ?? "",
@@ -45,6 +58,23 @@ export function ProfileForm({ person, specialLicenses }: { person: Omit<Person, 
   const [status, setStatus] = useState<"idle" | "saving" | "done" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
   const [reference, setReference] = useState<string | null>(null);
+  const [showSpecialLicenseForm, setShowSpecialLicenseForm] = useState(false);
+  const [specialLicenseForm, setSpecialLicenseForm] = useState({ licenseName: "", licenseNumber: "", issuedDate: "", expiryDate: "", notes: "" });
+  const [specialLicenseBusy, setSpecialLicenseBusy] = useState(false);
+
+  async function submitSpecialLicense(e: React.FormEvent) {
+    e.preventDefault();
+    setSpecialLicenseBusy(true);
+    await fetch("/api/portal/special-licenses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(specialLicenseForm),
+    });
+    setSpecialLicenseBusy(false);
+    setSpecialLicenseForm({ licenseName: "", licenseNumber: "", issuedDate: "", expiryDate: "", notes: "" });
+    setShowSpecialLicenseForm(false);
+    router.refresh();
+  }
 
   const hasUnsavedChanges = JSON.stringify(form) !== JSON.stringify(initialForm);
 
@@ -68,7 +98,7 @@ export function ProfileForm({ person, specialLicenses }: { person: Omit<Person, 
   }
 
   function canAdvance(): boolean {
-    if (step === 0) return !!form.first_name && !!form.last_name;
+    if (step === 0) return !!form.first_name && !!form.last_name && (hasNinOnFile || !!form.nin.trim());
     if (step === 1) return !!form.address_line1 && !!form.phone_mobile;
     if (step === 2) return !!form.employer && !!form.place_of_work;
     return true;
@@ -142,18 +172,24 @@ export function ProfileForm({ person, specialLicenses }: { person: Omit<Person, 
             <div className="grid grid-cols-2 gap-4">
               <label className="block">
                 <span className="font-body text-sm text-council-ink/70 block mb-1">Sex</span>
-                <select value={form.sex} onChange={(e) => update("sex", e.target.value as "M" | "F" | "Unknown")} className="w-full border border-council-navy/20 rounded-card px-3 py-2 font-body focus:outline-none focus:ring-2 focus:ring-council-cyan">
+                <select value={form.sex} onChange={(e) => update("sex", e.target.value as "M" | "F")} className="w-full border border-council-navy/20 rounded-card px-3 py-2 font-body focus:outline-none focus:ring-2 focus:ring-council-cyan">
                   <option value="F">Female</option>
                   <option value="M">Male</option>
-                  <option value="Unknown">Prefer not to say</option>
                 </select>
               </label>
               <Field label="Date of Birth" type="date" value={form.date_of_birth} onChange={(v) => update("date_of_birth", v)} />
             </div>
-            <Field label="National ID Number (NIN)" value={form.nin} onChange={(v) => update("nin", v)} placeholder="Enter to set or update — leave blank to keep unchanged" />
+            <Field
+              label="National ID Number (NIN)"
+              required={!hasNinOnFile}
+              value={form.nin}
+              onChange={(v) => update("nin", v)}
+              placeholder={hasNinOnFile ? "Enter to update — leave blank to keep unchanged" : "e.g. 123456-7-8901"}
+            />
             <p className="font-body text-xs text-council-ink/40 -mt-2">
-              Enter your National Identification Number exactly as shown on your ID document, including any hyphen.
-              Your current NIN isn't shown here for privacy — leave this blank to keep it as-is.
+              NIN is required. Please enter your National Identification Number exactly as shown on your official
+              identification document, including the hyphen (-).
+              {hasNinOnFile && " Your current NIN isn't shown here for privacy — leave this blank to keep it as-is."}
             </p>
           </>
         )}
@@ -186,11 +222,10 @@ export function ProfileForm({ person, specialLicenses }: { person: Omit<Person, 
               </label>
               <label className="block">
                 <span className="font-body text-sm text-council-ink/70 block mb-1">Service Category</span>
-                <select value={form.service_category} onChange={(e) => update("service_category", e.target.value as "Hospital" | "Community" | "Private" | "Unspecified")} className="w-full border border-council-navy/20 rounded-card px-3 py-2 font-body focus:outline-none focus:ring-2 focus:ring-council-cyan">
+                <select value={form.service_category} onChange={(e) => update("service_category", e.target.value as "Hospital" | "Community" | "Private")} className="w-full border border-council-navy/20 rounded-card px-3 py-2 font-body focus:outline-none focus:ring-2 focus:ring-council-cyan">
                   <option value="Hospital">Hospital</option>
                   <option value="Community">Community</option>
                   <option value="Private">Private</option>
-                  <option value="Unspecified">Unspecified</option>
                 </select>
               </label>
             </div>
@@ -215,25 +250,85 @@ export function ProfileForm({ person, specialLicenses }: { person: Omit<Person, 
 
         {step === 4 && (
           <>
-            <h2 className="font-display text-base text-council-navy">Special Licences</h2>
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="font-display text-base text-council-navy">Special Licences</h2>
+              <button type="button" onClick={() => setShowSpecialLicenseForm(!showSpecialLicenseForm)} className="flex items-center gap-1 text-xs text-council-cyan underline">
+                <Plus size={12} aria-hidden="true" /> Add Special Licence
+              </button>
+            </div>
             <p className="font-body text-xs text-council-ink/50 mb-2">
-              Additional certifications beyond your base Nurse/Midwife registration. Contact the Council office to
-              add a new one.
+              Additional certifications beyond your base Nurse/Midwife registration. A new special licence you add
+              here goes to the Council for review before it's added to your official record.
             </p>
+
+            {showSpecialLicenseForm && (
+              <form onSubmit={submitSpecialLicense} className="bg-council-cream rounded-card p-3 space-y-2">
+                <input
+                  type="text" required placeholder="Licence name (e.g. Critical Care)"
+                  value={specialLicenseForm.licenseName}
+                  onChange={(e) => setSpecialLicenseForm({ ...specialLicenseForm, licenseName: e.target.value })}
+                  className="w-full border border-council-navy/20 rounded-card px-2 py-1.5 text-sm"
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="text" placeholder="Licence number (if applicable)"
+                    value={specialLicenseForm.licenseNumber}
+                    onChange={(e) => setSpecialLicenseForm({ ...specialLicenseForm, licenseNumber: e.target.value })}
+                    className="border border-council-navy/20 rounded-card px-2 py-1.5 text-sm"
+                  />
+                  <div />
+                  <label className="text-xs text-council-ink/60">
+                    Issue Date
+                    <input type="date" value={specialLicenseForm.issuedDate} onChange={(e) => setSpecialLicenseForm({ ...specialLicenseForm, issuedDate: e.target.value })} className="w-full border border-council-navy/20 rounded-card px-2 py-1.5 text-sm mt-0.5" />
+                  </label>
+                  <label className="text-xs text-council-ink/60">
+                    Expiry Date
+                    <input type="date" value={specialLicenseForm.expiryDate} onChange={(e) => setSpecialLicenseForm({ ...specialLicenseForm, expiryDate: e.target.value })} className="w-full border border-council-navy/20 rounded-card px-2 py-1.5 text-sm mt-0.5" />
+                  </label>
+                </div>
+                <textarea
+                  placeholder="Notes (optional)"
+                  value={specialLicenseForm.notes}
+                  onChange={(e) => setSpecialLicenseForm({ ...specialLicenseForm, notes: e.target.value })}
+                  rows={2}
+                  className="w-full border border-council-navy/20 rounded-card px-2 py-1.5 text-sm"
+                />
+                <p className="font-body text-xs text-council-ink/40">
+                  You can attach a supporting document after submitting, from the list below.
+                </p>
+                <button type="submit" disabled={specialLicenseBusy} className="bg-council-navy text-white text-xs font-medium rounded-card px-3 py-1.5 disabled:opacity-60">
+                  {specialLicenseBusy ? "Submitting…" : "Submit for Council Review"}
+                </button>
+              </form>
+            )}
+
             {specialLicenses.length === 0 ? (
               <p className="font-body text-sm text-council-ink/40 italic">None on file.</p>
             ) : (
               <ul className="space-y-2">
-                {specialLicenses.map((l) => (
-                  <li key={l.id} className="bg-council-cream rounded-card px-3 py-2">
-                    <p className="font-body text-sm font-medium text-council-navy">{l.license_name}</p>
-                    <p className="font-body text-xs text-council-ink/50">
-                      {l.license_number && `${l.license_number} · `}
-                      {l.issued_date && `Issued ${l.issued_date}`}
-                      {l.expiry_date && ` · Expires ${l.expiry_date}`}
-                    </p>
-                  </li>
-                ))}
+                {specialLicenses.map((l) => {
+                  const expiryStatus = specialLicenseExpiryStatus(l.expiry_date);
+                  return (
+                    <li key={l.id} className="bg-council-cream rounded-card px-3 py-2">
+                      <p className="font-body text-sm font-medium text-council-navy">
+                        {l.license_name}
+                        {l.status === "Pending" && <span className="ml-2 text-xs text-status-pending font-medium">Pending Approval</span>}
+                        {l.status === "Rejected" && <span className="ml-2 text-xs text-status-closed font-medium">Rejected</span>}
+                        {l.status === "Approved" && expiryStatus && (
+                          <span className={`ml-2 text-xs font-medium ${expiryStatus === "Expired" ? "text-status-closed" : expiryStatus === "Expiring Soon" ? "text-status-pending" : "text-status-active"}`}>
+                            {expiryStatus}
+                          </span>
+                        )}
+                      </p>
+                      <p className="font-body text-xs text-council-ink/50">
+                        {l.license_number && `${l.license_number} · `}
+                        {l.issued_date && `Issued ${l.issued_date}`}
+                        {l.expiry_date && ` · Expires ${l.expiry_date}`}
+                      </p>
+                      <SpecialLicenseDocRow licenseId={l.id} hasDocument={!!l.document_path} />
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </>
@@ -364,5 +459,48 @@ function ReviewSection({ title, onEdit, children }: { title: string; onEdit: () 
         Edit
       </button>
     </div>
+  );
+}
+
+function SpecialLicenseDocRow({ licenseId, hasDocument }: { licenseId: string; hasDocument: boolean }) {
+  const [busy, setBusy] = useState(false);
+
+  async function handleUpload(file: File) {
+    setBusy(true);
+    const formData = new FormData();
+    formData.append("file", file);
+    await fetch(`/api/portal/special-licenses/${licenseId}/document`, { method: "POST", body: formData });
+    setBusy(false);
+    window.location.reload();
+  }
+
+  async function handleView() {
+    const res = await fetch(`/api/portal/special-licenses/${licenseId}/view-url`);
+    const data = await res.json();
+    if (data.ok) window.open(data.url, "_blank", "noopener,noreferrer");
+  }
+
+  if (hasDocument) {
+    return (
+      <button type="button" onClick={handleView} className="font-body text-xs text-council-cyan underline mt-1">
+        View attached document
+      </button>
+    );
+  }
+
+  return (
+    <label className="font-body text-xs text-council-cyan underline mt-1 cursor-pointer inline-block">
+      {busy ? "Uploading…" : "Attach document"}
+      <input
+        type="file"
+        accept=".pdf,.jpg,.jpeg,.png,.webp"
+        className="hidden"
+        disabled={busy}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handleUpload(file);
+        }}
+      />
+    </label>
   );
 }

@@ -3,15 +3,21 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-const STATUS_OPTIONS = ["Practising", "Not Practising", "Retired", "Abroad", "Deceased", "Deleted", "Unknown"];
+// "Deleted" and "Unknown" excluded here specifically — a BRAND NEW
+// person being added right now should never start out flagged as one of
+// those; both remain legitimate values elsewhere in the system (they're
+// not purged from the database or hidden from search/filter, since
+// existing legacy records genuinely need to stay findable) but neither
+// makes sense as a starting choice for someone just being entered.
+const STATUS_OPTIONS = ["Practising", "Not Practising", "Retired", "Abroad", "Deceased"];
 
 export function NewPersonForm() {
   const router = useRouter();
   const [form, setForm] = useState({
-    first_name: "", last_name: "", sex: "Unknown",
+    first_name: "", last_name: "", sex: "F",
     nin: "", email: "",
     nurse_reg_no: "", midwife_reg_no: "",
-    professional_category: "", registration_status: "Unknown", is_deceased: false,
+    professional_category: "Nurse", registration_status: "Practising", is_deceased: false,
     employer: "", place_of_work: "", phone_mobile: "",
   });
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +34,7 @@ export function NewPersonForm() {
     const res = await fetch("/api/admin/people", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, professional_category: form.professional_category || undefined }),
+      body: JSON.stringify(form),
     });
     const data = await res.json();
     setBusy(false);
@@ -51,7 +57,7 @@ export function NewPersonForm() {
       <label className="block">
         <span className="font-body text-sm text-council-ink/70 block mb-1">Sex</span>
         <select value={form.sex} onChange={(e) => update("sex", e.target.value)} className="w-full border border-council-navy/20 rounded-card px-3 py-2 font-body focus:outline-none focus:ring-2 focus:ring-council-cyan">
-          <option value="F">Female</option><option value="M">Male</option><option value="Unknown">Unknown</option>
+          <option value="F">Female</option><option value="M">Male</option>
         </select>
       </label>
       <div className="grid grid-cols-2 gap-4">
@@ -62,7 +68,7 @@ export function NewPersonForm() {
       <label className="block">
         <span className="font-body text-sm text-council-ink/70 block mb-1">Professional Category</span>
         <select value={form.professional_category} onChange={(e) => update("professional_category", e.target.value)} className="w-full border border-council-navy/20 rounded-card px-3 py-2 font-body focus:outline-none focus:ring-2 focus:ring-council-cyan">
-          <option value="">Not set (confirm later)</option><option value="Nurse">Nurse</option><option value="Midwife">Midwife</option><option value="Both">Both</option>
+          <option value="Nurse">Nurse</option><option value="Midwife">Midwife</option><option value="Both">Nurse / Midwife</option>
         </select>
       </label>
       <div className="grid grid-cols-2 gap-4">
