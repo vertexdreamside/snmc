@@ -25,3 +25,20 @@ export function categoryDisplay(category: string | null): string {
   if (category === "Both") return "Nurse / Midwife";
   return category ?? "—";
 }
+
+// Shared redaction for audit_log.details wherever it's displayed or
+// exported — a self-service profile edit's diff can contain the actual
+// old/new NIN value inside details.changes.nin, which is just as
+// sensitive as the NIN field itself. Anywhere details gets rendered or
+// exported needs this check, not just the main profile field — see the
+// HistorySection fix this was extracted from, and the Audit Log
+// page/export this was found to also affect.
+export function redactNinFromDetails(details: Record<string, unknown> | null, canSeeNin: boolean): Record<string, unknown> | null {
+  if (!details || canSeeNin) return details;
+  const changes = details.changes as Record<string, unknown> | undefined;
+  if (changes && "nin" in changes) {
+    const { nin, ...restChanges } = changes;
+    return { ...details, changes: { ...restChanges, nin: "(restricted)" } };
+  }
+  return details;
+}

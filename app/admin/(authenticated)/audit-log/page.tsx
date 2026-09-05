@@ -1,6 +1,8 @@
 import { requireAdmin } from "@/lib/auth/guards";
 import { createClient } from "@/lib/supabase/server";
 import { ScrollText } from "lucide-react";
+import { canManageRegister } from "@/lib/auth/permissions";
+import { redactNinFromDetails } from "@/lib/licenses";
 
 // The audit_log table has been written to since migration 0001, but
 // until now there was no page anywhere to actually view it, despite
@@ -9,7 +11,8 @@ import { ScrollText } from "lucide-react";
 const PAGE_SIZE = 50;
 
 export default async function AuditLogPage({ searchParams }: { searchParams: { page?: string; actor?: string } }) {
-  await requireAdmin(["users"]);
+  const admin = await requireAdmin(["users"]);
+  const canSeeNin = canManageRegister(admin);
   const supabase = createClient();
 
   const currentPage = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
@@ -85,7 +88,7 @@ export default async function AuditLogPage({ searchParams }: { searchParams: { p
                   {e.target_table}{e.target_id ? ` · ${e.target_id.slice(0, 8)}…` : ""}
                 </td>
                 <td className="px-4 py-3 text-council-ink/50 font-mono text-xs">{e.ip_address ?? "—"}</td>
-                <td className="px-4 py-3 text-council-ink/50 text-xs max-w-xs truncate">{e.details ? JSON.stringify(e.details) : "—"}</td>
+                <td className="px-4 py-3 text-council-ink/50 text-xs max-w-xs truncate">{e.details ? JSON.stringify(redactNinFromDetails(e.details, canSeeNin)) : "—"}</td>
               </tr>
             ))}
             {(!entries || entries.length === 0) && (

@@ -16,6 +16,8 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/guards";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { computeLicenseStatus } from "@/lib/reports";
+import { redactNinFromDetails } from "@/lib/licenses";
+import { canManageRegister } from "@/lib/auth/permissions";
 
 const DATASETS = [
   "register",
@@ -181,7 +183,7 @@ export async function GET(request: Request) {
     case "audit_log": {
       const { data, error } = await supabase.from("audit_log").select("action, target_table, target_id, ip_address, details, created_at").order("created_at", { ascending: false }).limit(5000);
       if (error) return NextResponse.json({ ok: false, reason: "Query failed." }, { status: 500 });
-      rows = (data ?? []).map((a: any) => ({ ...a, details: a.details ? JSON.stringify(a.details) : "" }));
+      rows = (data ?? []).map((a: any) => ({ ...a, details: a.details ? JSON.stringify(redactNinFromDetails(a.details, canManageRegister(actor))) : "" }));
       targetTable = "audit_log";
       break;
     }
