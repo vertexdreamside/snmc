@@ -2,6 +2,27 @@ import { requirePortalUser } from "@/lib/auth/guards";
 import { createClient } from "@/lib/supabase/server";
 import { ProfileForm } from "./ProfileForm";
 import { categoryDisplay } from "@/lib/licenses";
+import { AlertTriangle } from "lucide-react";
+
+const REMINDER_WINDOW_DAYS = 90;
+
+// In-app licence expiry reminder — the closest thing to "email reminders"
+// this system can currently do. There's no real email/SMS on file for
+// most nurses/midwives (see the note on nominee notifications for the
+// same underlying constraint), so this surfaces the moment the person
+// actually logs in instead.
+function upcomingExpiryWarning(nurseExpiry: string | null, midwifeExpiry: string | null): { label: string; date: string; expired: boolean } | null {
+  const today = new Date();
+  const windowEnd = new Date(today.getTime() + REMINDER_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+  const candidates: { label: string; date: string }[] = [];
+  if (nurseExpiry) candidates.push({ label: "Nurse licence", date: nurseExpiry });
+  if (midwifeExpiry) candidates.push({ label: "Midwife licence", date: midwifeExpiry });
+  const soonest = candidates
+    .filter((c) => new Date(c.date) <= windowEnd)
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0];
+  if (!soonest) return null;
+  return { ...soonest, expired: new Date(soonest.date) < today };
+}
 
 // Full self-service profile: a nurse/midwife sees and can edit everything
 // about their own record except their registration numbers, which stay
@@ -14,6 +35,7 @@ import { categoryDisplay } from "@/lib/licenses";
 // shown here read-only so the person can still see where things stand.
 export default async function ProfilePage() {
   const person = await requirePortalUser();
+  const expiryWarning = upcomingExpiryWarning(person.nurse_license_expiry, person.midwife_license_expiry);
   const supabase = createClient();
 
   // Most recent admin decision on this person's own profile, with its
@@ -38,6 +60,18 @@ export default async function ProfilePage() {
           {person.first_name} {person.last_name}
         </p>
       </div>
+
+      {expiryWarning && (
+        <section className={`rounded-card p-4 border ${expiryWarning.expired ? "bg-status-closed/10 border-status-closed/30" : "bg-status-pending/10 border-status-pending/30"}`}>
+          <p className="font-body text-sm text-council-navy font-medium flex items-center gap-2">
+            <AlertTriangle size={14} className={expiryWarning.expired ? "text-status-closed" : "text-status-pending"} aria-hidden="true" />
+            {expiryWarning.expired
+              ? `Your ${expiryWarning.label} expired on ${expiryWarning.date}.`
+              : `Your ${expiryWarning.label} expires on ${expiryWarning.date}.`}
+          </p>
+          <p className="font-body text-xs text-council-ink/60 mt-1">Contact the Council office to renew.</p>
+        </section>
+      )}
 
       {latestReview && person.profile_status === "Rejected" && (
         <section className="bg-status-closed/10 border border-status-closed/30 rounded-card p-4">
