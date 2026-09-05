@@ -8,6 +8,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
+import { getClientIp } from "@/lib/audit/getClientIp";
 
 const schema = z.object({ outcome: z.enum(["success", "failure"]), email: z.string().email() });
 
@@ -17,11 +18,12 @@ export async function POST(request: Request) {
   if (!parsed.success) return NextResponse.json({ ok: false }, { status: 400 });
 
   const service = createServiceRoleClient();
+  const ipAddress = getClientIp(request);
 
   if (parsed.data.outcome === "failure") {
     await service.from("audit_log").insert({
       actor_id: null, action: "admin_login_failure", target_table: "admin_users",
-      details: { attempted_email: parsed.data.email },
+      ip_address: ipAddress, details: { attempted_email: parsed.data.email },
     });
     return NextResponse.json({ ok: true });
   }
@@ -34,7 +36,7 @@ export async function POST(request: Request) {
 
   await service.from("audit_log").insert({
     actor_id: adminId, action: "admin_login_success", target_table: "admin_users",
-    target_id: adminId, details: { email: parsed.data.email },
+    target_id: adminId, ip_address: ipAddress, details: { email: parsed.data.email },
   });
 
   return NextResponse.json({ ok: true });

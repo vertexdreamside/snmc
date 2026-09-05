@@ -173,7 +173,7 @@ export async function GET(request: Request) {
       break;
     }
     case "audit_log": {
-      const { data, error } = await supabase.from("audit_log").select("action, target_table, target_id, details, created_at").order("created_at", { ascending: false }).limit(5000);
+      const { data, error } = await supabase.from("audit_log").select("action, target_table, target_id, ip_address, details, created_at").order("created_at", { ascending: false }).limit(5000);
       if (error) return NextResponse.json({ ok: false, reason: "Query failed." }, { status: 500 });
       rows = (data ?? []).map((a: any) => ({ ...a, details: a.details ? JSON.stringify(a.details) : "" }));
       targetTable = "audit_log";

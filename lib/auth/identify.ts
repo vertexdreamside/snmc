@@ -34,18 +34,19 @@ export interface LoginResult {
 
 async function logAttempt(
   supabase: ReturnType<typeof createServiceRoleClient>,
-  params: { outcome: "success" | "failure"; registrationNumber: string; personId: string | null; failureReason?: string }
+  params: { outcome: "success" | "failure"; registrationNumber: string; personId: string | null; failureReason?: string; ipAddress: string | null }
 ) {
   await supabase.from("audit_log").insert({
     actor_id: params.personId,
     action: params.outcome === "success" ? "portal_login_success" : "portal_login_failure",
     target_table: "people",
     target_id: params.personId,
+    ip_address: params.ipAddress,
     details: { attempted_registration_number: params.registrationNumber, failure_reason: params.failureReason ?? null },
   });
 }
 
-export async function identifyAndSignIn(input: z.infer<typeof loginSchema>, siteOrigin: string): Promise<LoginResult> {
+export async function identifyAndSignIn(input: z.infer<typeof loginSchema>, siteOrigin: string, ipAddress: string | null = null): Promise<LoginResult> {
   const supabase = createServiceRoleClient();
 
   const { data: person, error } = await supabase
@@ -57,20 +58,20 @@ export async function identifyAndSignIn(input: z.infer<typeof loginSchema>, site
   const genericFailure: LoginResult = { ok: false, reason: "We couldn't verify those details." };
 
   if (error || !person) {
-    await logAttempt(supabase, { outcome: "failure", registrationNumber: input.registrationNumber, personId: null, failureReason: "no matching registration number" });
+    await logAttempt(supabase, { outcome: "failure", registrationNumber: input.registrationNumber, personId: null, failureReason: "no matching registration number", ipAddress });
     return genericFailure;
   }
 
   const hasNinOnFile = !!person.nin && person.nin.trim() !== "";
   if (hasNinOnFile) {
     if (!input.nin || person.nin !== input.nin) {
-      await logAttempt(supabase, { outcome: "failure", registrationNumber: input.registrationNumber, personId: person.id, failureReason: "NIN mismatch" });
+      await logAttempt(supabase, { outcome: "failure", registrationNumber: input.registrationNumber, personId: person.id, failureReason: "NIN mismatch", ipAddress });
       return genericFailure;
     }
   }
 
   if (person.is_deceased || INELIGIBLE_STATUSES.includes(person.registration_status as any)) {
-    await logAttempt(supabase, { outcome: "failure", registrationNumber: input.registrationNumber, personId: person.id, failureReason: "ineligible status" });
+    await logAttempt(supabase, { outcome: "failure", registrationNumber: input.registrationNumber, personId: person.id, failureReason: "ineligible status", ipAddress });
     return genericFailure;
   }
 
@@ -83,7 +84,7 @@ export async function identifyAndSignIn(input: z.infer<typeof loginSchema>, site
   });
 
   if (linkError || !link) {
-    await logAttempt(supabase, { outcome: "failure", registrationNumber: input.registrationNumber, personId: person.id, failureReason: "could not generate session link" });
+    await logAttempt(supabase, { outcome: "failure", registrationNumber: input.registrationNumber, personId: person.id, failureReason: "could not generate session link", ipAddress });
     return { ok: false, reason: "Could not start a session. Please try again." };
   }
 
@@ -92,7 +93,7 @@ export async function identifyAndSignIn(input: z.infer<typeof loginSchema>, site
     await supabase.from("people").update({ auth_user_id: actualAuthUserId }).eq("id", person.id);
   }
 
-  await logAttempt(supabase, { outcome: "success", registrationNumber: input.registrationNumber, personId: person.id });
+  await logAttempt(supabase, { outcome: "success", registrationNumber: input.registrationNumber, personId: person.id, ipAddress });
 
   return { ok: true, redirectTo: link.properties.action_link };
 }

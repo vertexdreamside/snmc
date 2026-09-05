@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { loginSchema, identifyAndSignIn } from "@/lib/auth/identify";
+import { getClientIp } from "@/lib/audit/getClientIp";
 
 export async function POST(request: Request) {
   const body = await request.json();
@@ -15,7 +16,7 @@ export async function POST(request: Request) {
   // origin the person is actually using.
   const siteOrigin = new URL(request.url).origin;
 
-  const result = await identifyAndSignIn(parsed.data, siteOrigin);
+  const result = await identifyAndSignIn(parsed.data, siteOrigin, getClientIp(request));
 
   // Always 200, even on failure — the response body carries a deliberately
   // vague reason so this endpoint can't be used to enumerate valid

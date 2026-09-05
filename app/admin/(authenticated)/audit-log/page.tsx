@@ -18,7 +18,7 @@ export default async function AuditLogPage({ searchParams }: { searchParams: { p
 
   let query = supabase
     .from("audit_log")
-    .select("id, action, target_table, target_id, details, created_at, actor_id", { count: "exact" })
+    .select("id, action, target_table, target_id, details, created_at, actor_id, ip_address", { count: "exact" })
     .order("created_at", { ascending: false })
     .range(from, to);
 
@@ -69,6 +69,7 @@ export default async function AuditLogPage({ searchParams }: { searchParams: { p
               <th className="px-4 py-3">Actor</th>
               <th className="px-4 py-3">Action</th>
               <th className="px-4 py-3">Target</th>
+              <th className="px-4 py-3">IP Address</th>
               <th className="px-4 py-3">Details</th>
             </tr>
           </thead>
@@ -83,12 +84,13 @@ export default async function AuditLogPage({ searchParams }: { searchParams: { p
                 <td className="px-4 py-3 text-council-ink/60">
                   {e.target_table}{e.target_id ? ` · ${e.target_id.slice(0, 8)}…` : ""}
                 </td>
+                <td className="px-4 py-3 text-council-ink/50 font-mono text-xs">{e.ip_address ?? "—"}</td>
                 <td className="px-4 py-3 text-council-ink/50 text-xs max-w-xs truncate">{e.details ? JSON.stringify(e.details) : "—"}</td>
               </tr>
             ))}
             {(!entries || entries.length === 0) && (
               <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-council-ink/50">
+                <td colSpan={6} className="px-4 py-10 text-center text-council-ink/50">
                   <ScrollText size={22} className="mx-auto mb-2 text-council-ink/30" aria-hidden="true" />
                   No audit entries {filteredActorName ? "for this person" : "yet"}.
                 </td>
