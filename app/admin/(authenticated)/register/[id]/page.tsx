@@ -157,7 +157,7 @@ export default async function PersonDetailPage({ params }: { params: { id: strin
         </div>
       )}
 
-      <HistorySection entries={history ?? []} />
+      <HistorySection entries={history ?? []} canSeeNin={canSeeNin} />
 
       <RecordManagementSection personId={person.id} isDeceased={person.is_deceased} />
     </div>

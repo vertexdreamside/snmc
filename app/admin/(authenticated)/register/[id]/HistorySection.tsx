@@ -44,7 +44,7 @@ function display(v: unknown): string {
   return String(v);
 }
 
-export function HistorySection({ entries }: { entries: HistoryEntry[] }) {
+export function HistorySection({ entries, canSeeNin }: { entries: HistoryEntry[]; canSeeNin: boolean }) {
   return (
     <div className="bg-white rounded-card border border-council-navy/10 p-6">
       <h2 className="font-display text-base text-council-navy mb-4 flex items-center gap-2">
@@ -64,13 +64,29 @@ export function HistorySection({ entries }: { entries: HistoryEntry[] }) {
                 <p className="font-body text-xs text-council-ink/40">{new Date(entry.created_at).toLocaleString()}</p>
                 {changes && Object.keys(changes).length > 0 && (
                   <div className="mt-1 space-y-0.5">
-                    {Object.entries(changes).map(([field, { from, to }]) => (
-                      <p key={field} className="font-body text-xs text-council-ink/60">
-                        <span className="font-medium">{FIELD_LABELS[field] ?? field}:</span>{" "}
-                        <span className="line-through text-council-ink/30">{display(from)}</span> →{" "}
-                        <span>{display(to)}</span>
-                      </p>
-                    ))}
+                    {Object.entries(changes).map(([field, { from, to }]) => {
+                      // NIN redacted here too, not just on the main
+                      // profile field — a diff is still the actual NIN
+                      // value, just presented as "old → new" instead of
+                      // a single field. Hiding the summary field while
+                      // leaving this open would have been a real leak,
+                      // not a fixed one.
+                      const isNin = field === "nin";
+                      const canShow = !isNin || canSeeNin;
+                      return (
+                        <p key={field} className="font-body text-xs text-council-ink/60">
+                          <span className="font-medium">{FIELD_LABELS[field] ?? field}:</span>{" "}
+                          {canShow ? (
+                            <>
+                              <span className="line-through text-council-ink/30">{display(from)}</span> →{" "}
+                              <span>{display(to)}</span>
+                            </>
+                          ) : (
+                            <span className="italic text-council-ink/30">Changed — restricted</span>
+                          )}
+                        </p>
+                      );
+                    })}
                   </div>
                 )}
                 {entry.details?.reason ? (
