@@ -3,6 +3,16 @@
 // numbers (nurse_reg_no, midwife_reg_no) — those are the register's own
 // identifiers, not personal details, and stay admin-only.
 //
+// Licence number and expiry are ALSO excluded here — a real fix, not
+// part of the original design. They were previously editable through
+// this same route as free text, which quietly undermined the dedicated
+// Licence Renewal workflow (Section 5): someone could just retype their
+// expiry date here and have it go through as an ordinary profile edit,
+// with no renewal history, no supporting document, and none of that
+// workflow's review structure. Expiry changes now only ever happen
+// through /api/portal/license-renewal; licence number corrections go
+// through the Council office directly, same as registration numbers.
+//
 // Deliberately still excluded even under that broad mandate: the
 // system/administrative fields (registration_status, is_active,
 // profile_status, category_confirmed, auth_user_id, data_source, notes).
@@ -20,13 +30,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
-import { validateLicenseFormat } from "@/lib/licenses";
 
 const EDITABLE_FIELDS = [
   "first_name", "last_name", "sex", "date_of_birth", "nin",
   "address_line1", "address_line2", "address_line3", "phone_home", "phone_mobile",
   "employer", "place_of_work", "employment_sector", "service_category", "training_institute",
-  "nurse_license_no", "nurse_license_expiry", "midwife_license_no", "midwife_license_expiry",
 ] as const;
 
 const profileUpdateSchema = z.object({
@@ -45,10 +53,6 @@ const profileUpdateSchema = z.object({
   employment_sector: z.enum(["Government", "Private"]).optional(),
   service_category: z.enum(["Hospital", "Community", "Private", "Unspecified"]).optional(),
   training_institute: z.string().optional().default(""),
-  nurse_license_no: z.string().optional().default(""),
-  nurse_license_expiry: z.string().optional().nullable(),
-  midwife_license_no: z.string().optional().default(""),
-  midwife_license_expiry: z.string().optional().nullable(),
   reasonForChange: z.string().optional(),
 });
 
@@ -70,15 +74,6 @@ export async function PATCH(request: Request) {
     );
   }
 
-  if (parsed.data.nurse_license_no) {
-    const check = validateLicenseFormat("nurse", parsed.data.nurse_license_no);
-    if (!check.valid) return NextResponse.json({ ok: false, reason: check.reason }, { status: 400 });
-  }
-  if (parsed.data.midwife_license_no) {
-    const check = validateLicenseFormat("midwife", parsed.data.midwife_license_no);
-    if (!check.valid) return NextResponse.json({ ok: false, reason: check.reason }, { status: 400 });
-  }
-
   const admin = createServiceRoleClient();
   const { data: existing } = await admin.from("people").select(EDITABLE_FIELDS.join(", ")).eq("auth_user_id", user.id).single();
   if (!existing) {
@@ -90,16 +85,13 @@ export async function PATCH(request: Request) {
   }
 
   // Normalize empty-string date inputs to null rather than writing "" into
-  // a date column, and turn away blank optional strings so they store as
-  // null instead of an empty string. reasonForChange is destructured out
-  // here specifically — it's not a people column, and left in `cleaned`
-  // it would get spread straight into the update() call below and error.
+  // a date column. reasonForChange is destructured out here specifically —
+  // it's not a people column, and left in `cleaned` it would get spread
+  // straight into the update() call below and error.
   const { reasonForChange, ...dataFields } = parsed.data;
   const cleaned = {
     ...dataFields,
     date_of_birth: parsed.data.date_of_birth || null,
-    nurse_license_expiry: parsed.data.nurse_license_expiry || null,
-    midwife_license_expiry: parsed.data.midwife_license_expiry || null,
   };
 
   // Build an actual before/after diff of only what's genuinely changing —
@@ -129,15 +121,24 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ ok: false, reason: "Could not save your changes." }, { status: 500 });
   }
 
+  // Same "reference" pattern as the vote receipt — something the person
+  // can quote if they contact the Council office about this specific
+  // submission, without needing to describe it in words.
+  let reference: string | undefined;
   if (Object.keys(changes).length > 0) {
-    await admin.from("audit_log").insert({
-      actor_id: person.id,
-      action: "self_service_profile_update",
-      target_table: "people",
-      target_id: person.id,
-      details: { changes, reason: reasonForChange || undefined },
-    });
+    const { data: logRow } = await admin
+      .from("audit_log")
+      .insert({
+        actor_id: person.id,
+        action: "self_service_profile_update",
+        target_table: "people",
+        target_id: person.id,
+        details: { changes, reason: reasonForChange || undefined },
+      })
+      .select("id")
+      .single();
+    reference = logRow?.id ? logRow.id.slice(0, 8).toUpperCase() : undefined;
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, reference });
 }

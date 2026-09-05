@@ -36,8 +36,15 @@ function upcomingExpiryWarning(nurseExpiry: string | null, midwifeExpiry: string
 // shown here read-only so the person can still see where things stand.
 export default async function ProfilePage() {
   const person = await requirePortalUser();
-  const expiryWarning = upcomingExpiryWarning(person.nurse_license_expiry, person.midwife_license_expiry);
   const supabase = createClient();
+
+  const { data: specialLicenses } = await supabase
+    .from("special_licenses")
+    .select("id, license_name, license_number, issued_date, expiry_date")
+    .eq("person_id", person.id)
+    .order("created_at", { ascending: false });
+
+  const expiryWarning = upcomingExpiryWarning(person.nurse_license_expiry, person.midwife_license_expiry);
 
   // Most recent admin decision on this person's own profile, with its
   // review comment — a rejected edit with no explanation gives someone
@@ -106,7 +113,7 @@ export default async function ProfilePage() {
 
       <RenewalRequestForm hasNurse={!!person.nurse_reg_no} hasMidwife={!!person.midwife_reg_no} />
 
-      <ProfileForm person={person} />
+      <ProfileForm person={person} specialLicenses={specialLicenses ?? []} />
     </div>
   );
 }

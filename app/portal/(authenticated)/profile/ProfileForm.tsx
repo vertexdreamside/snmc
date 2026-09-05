@@ -1,9 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Person } from "@/lib/types/database";
+import { CheckCircle2, ArrowLeft, ArrowRight } from "lucide-react";
 
-export function ProfileForm({ person }: { person: Omit<Person, "nin" | "notes"> }) {
+interface SpecialLicense {
+  id: string;
+  license_name: string;
+  license_number: string | null;
+  issued_date: string | null;
+  expiry_date: string | null;
+}
+
+const STEPS = ["Personal", "Contact", "Professional", "Licence", "Special Licences", "Review"] as const;
+
+// Guided step-by-step wizard per the confirmed Nurse/Midwife portal UX
+// requirements — "divide the profile into simple steps" rather than one
+// long form, with a progress indicator, Back/Next navigation, a review
+// step before submission, and a confirmation with a reference number
+// afterward. Licence number and expiry are shown READ-ONLY here (not
+// editable) — see the API route's comment for why: editing them here
+// used to quietly bypass the dedicated Licence Renewal workflow.
+export function ProfileForm({ person, specialLicenses }: { person: Omit<Person, "nin" | "notes">; specialLicenses: SpecialLicense[] }) {
+  const [step, setStep] = useState(0);
   const [form, setForm] = useState({
     first_name: person.first_name ?? "",
     last_name: person.last_name ?? "",
@@ -20,27 +39,49 @@ export function ProfileForm({ person }: { person: Omit<Person, "nin" | "notes"> 
     employment_sector: person.employment_sector ?? "Government",
     service_category: person.service_category ?? "Unspecified",
     training_institute: person.training_institute ?? "",
-    nurse_license_no: person.nurse_license_no ?? "",
-    nurse_license_expiry: person.nurse_license_expiry ?? "",
-    midwife_license_no: person.midwife_license_no ?? "",
-    midwife_license_expiry: person.midwife_license_expiry ?? "",
     reasonForChange: "",
   });
+  const [initialForm] = useState(form);
   const [status, setStatus] = useState<"idle" | "saving" | "done" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [reference, setReference] = useState<string | null>(null);
+
+  const hasUnsavedChanges = JSON.stringify(form) !== JSON.stringify(initialForm);
+
+  // Warn on tab close / navigation away with unsaved changes — the
+  // browser's own native prompt is the only mechanism available for
+  // this (custom UI can't intercept a tab close), so the message text
+  // itself is controlled by the browser, not this code.
+  useEffect(() => {
+    function handler(e: BeforeUnloadEvent) {
+      if (hasUnsavedChanges && status !== "done") {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    }
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [hasUnsavedChanges, status]);
 
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function canAdvance(): boolean {
+    if (step === 0) return !!form.first_name && !!form.last_name;
+    if (step === 1) return !!form.address_line1 && !!form.phone_mobile;
+    if (step === 2) return !!form.employer && !!form.place_of_work;
+    return true;
+  }
+
+  async function handleSubmit() {
     setStatus("saving");
     setError(null);
+    const { reasonForChange, ...rest } = form;
     const res = await fetch("/api/portal/profile", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify({ ...rest, reasonForChange }),
     });
     const data = await res.json();
     if (!data.ok) {
@@ -48,140 +89,224 @@ export function ProfileForm({ person }: { person: Omit<Person, "nin" | "notes"> 
       setStatus("error");
       return;
     }
+    setReference(data.reference ?? null);
     setStatus("done");
   }
 
   if (status === "done") {
     return (
-      <div className="bg-white rounded-card border border-status-active/30 p-6">
-        <p className="font-body text-sm text-status-active">
-          Your changes have been submitted and are pending Council review.
+      <div className="bg-white rounded-card border border-status-active/30 p-8 text-center space-y-3">
+        <CheckCircle2 size={40} className="text-status-active mx-auto" aria-hidden="true" />
+        <h2 className="font-display text-lg text-council-navy">Changes Submitted Successfully</h2>
+        <p className="font-body text-sm text-council-ink/70">
+          Your information has been submitted to the Council for review. You'll see the outcome on this page once
+          it's been reviewed.
         </p>
+        {reference && (
+          <p className="font-body text-sm text-council-ink/60">
+            Submission Reference: <span className="font-mono font-medium text-council-navy">{reference}</span>
+          </p>
+        )}
+        <p className="font-body text-sm text-status-pending font-medium">Status: Pending Approval</p>
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <section className="bg-white rounded-card border border-council-navy/10 p-6 space-y-4">
-        <h2 className="font-display text-base text-council-navy">Personal Details</h2>
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="First Name" required value={form.first_name} onChange={(v) => update("first_name", v)} />
-          <Field label="Last Name" required value={form.last_name} onChange={(v) => update("last_name", v)} />
+    <div className="space-y-4">
+      {/* Progress indicator */}
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          {STEPS.map((label, i) => (
+            <span key={label} className={`font-body text-xs ${i === step ? "text-council-navy font-medium" : "text-council-ink/40"} hidden sm:block`}>
+              {label}
+            </span>
+          ))}
         </div>
-        <div className="grid grid-cols-2 gap-4">
-          <label className="block">
-            <span className="font-body text-sm text-council-ink/70 block mb-1">Sex</span>
-            <select
-              value={form.sex}
-              onChange={(e) => update("sex", e.target.value as "M" | "F" | "Unknown")}
-              className="w-full border border-council-navy/20 rounded-card px-3 py-2 font-body focus:outline-none focus:ring-2 focus:ring-council-cyan"
-            >
-              <option value="F">Female</option>
-              <option value="M">Male</option>
-              <option value="Unknown">Prefer not to say</option>
-            </select>
-          </label>
-          <Field label="Date of Birth" type="date" value={form.date_of_birth} onChange={(v) => update("date_of_birth", v)} />
+        <div className="flex gap-1">
+          {STEPS.map((_, i) => (
+            <div key={i} className={`h-1.5 flex-1 rounded-full ${i <= step ? "bg-council-cyan" : "bg-council-navy/10"}`} />
+          ))}
         </div>
-        <Field
-          label="National ID Number (NIN)"
-          value={form.nin}
-          onChange={(v) => update("nin", v)}
-          placeholder={person.registration_status ? "Enter to set or update — leave blank to keep unchanged" : undefined}
-        />
-        <p className="font-body text-xs text-council-ink/40 -mt-2">
-          Your current NIN isn't shown here for privacy. Leave this blank to keep it as-is, or enter a value to set
-          or correct it.
-        </p>
-      </section>
+        <p className="font-body text-xs text-council-ink/50 mt-1">Step {step + 1} of {STEPS.length}: {STEPS[step]}</p>
+      </div>
 
-      <section className="bg-white rounded-card border border-council-navy/10 p-6 space-y-4">
-        <h2 className="font-display text-base text-council-navy">Contact &amp; Address</h2>
-        <Field label="Address Line 1" required value={form.address_line1} onChange={(v) => update("address_line1", v)} />
-        <Field label="Address Line 2" value={form.address_line2} onChange={(v) => update("address_line2", v)} />
-        <Field label="Address Line 3" value={form.address_line3} onChange={(v) => update("address_line3", v)} />
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Mobile Number" required value={form.phone_mobile} onChange={(v) => update("phone_mobile", v)} />
-          <Field label="Home Number" value={form.phone_home} onChange={(v) => update("phone_home", v)} />
-        </div>
-      </section>
+      <div className="bg-white rounded-card border border-council-navy/10 p-6 space-y-4">
+        {step === 0 && (
+          <>
+            <h2 className="font-display text-base text-council-navy">Personal Details</h2>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="First Name" required value={form.first_name} onChange={(v) => update("first_name", v)} />
+              <Field label="Last Name" required value={form.last_name} onChange={(v) => update("last_name", v)} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <label className="block">
+                <span className="font-body text-sm text-council-ink/70 block mb-1">Sex</span>
+                <select value={form.sex} onChange={(e) => update("sex", e.target.value as "M" | "F" | "Unknown")} className="w-full border border-council-navy/20 rounded-card px-3 py-2 font-body focus:outline-none focus:ring-2 focus:ring-council-cyan">
+                  <option value="F">Female</option>
+                  <option value="M">Male</option>
+                  <option value="Unknown">Prefer not to say</option>
+                </select>
+              </label>
+              <Field label="Date of Birth" type="date" value={form.date_of_birth} onChange={(v) => update("date_of_birth", v)} />
+            </div>
+            <Field label="National ID Number (NIN)" value={form.nin} onChange={(v) => update("nin", v)} placeholder="Enter to set or update — leave blank to keep unchanged" />
+            <p className="font-body text-xs text-council-ink/40 -mt-2">
+              Enter your National Identification Number exactly as shown on your ID document, including any hyphen.
+              Your current NIN isn't shown here for privacy — leave this blank to keep it as-is.
+            </p>
+          </>
+        )}
 
-      <section className="bg-white rounded-card border border-council-navy/10 p-6 space-y-4">
-        <h2 className="font-display text-base text-council-navy">Employment</h2>
-        <Field label="Employer" required value={form.employer} onChange={(v) => update("employer", v)} />
-        <Field label="Place of Work" required value={form.place_of_work} onChange={(v) => update("place_of_work", v)} />
-        <div className="grid grid-cols-2 gap-4">
-          <label className="block">
-            <span className="font-body text-sm text-council-ink/70 block mb-1">Employment Sector</span>
-            <select
-              value={form.employment_sector}
-              onChange={(e) => update("employment_sector", e.target.value as "Government" | "Private")}
-              className="w-full border border-council-navy/20 rounded-card px-3 py-2 font-body focus:outline-none focus:ring-2 focus:ring-council-cyan"
-            >
-              <option value="Government">Government</option>
-              <option value="Private">Private</option>
-            </select>
-          </label>
-          <label className="block">
-            <span className="font-body text-sm text-council-ink/70 block mb-1">Service Category</span>
-            <select
-              value={form.service_category}
-              onChange={(e) => update("service_category", e.target.value as "Hospital" | "Community" | "Private" | "Unspecified")}
-              className="w-full border border-council-navy/20 rounded-card px-3 py-2 font-body focus:outline-none focus:ring-2 focus:ring-council-cyan"
-            >
-              <option value="Hospital">Hospital</option>
-              <option value="Community">Community</option>
-              <option value="Private">Private</option>
-              <option value="Unspecified">Unspecified</option>
-            </select>
-          </label>
-        </div>
-        <Field label="Training Institute" value={form.training_institute} onChange={(v) => update("training_institute", v)} />
-      </section>
+        {step === 1 && (
+          <>
+            <h2 className="font-display text-base text-council-navy">Contact Details</h2>
+            <Field label="Address Line 1" required value={form.address_line1} onChange={(v) => update("address_line1", v)} />
+            <Field label="Address Line 2" value={form.address_line2} onChange={(v) => update("address_line2", v)} />
+            <Field label="Address Line 3" value={form.address_line3} onChange={(v) => update("address_line3", v)} />
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Mobile Number" required type="tel" value={form.phone_mobile} onChange={(v) => update("phone_mobile", v)} />
+              <Field label="Home Number" type="tel" value={form.phone_home} onChange={(v) => update("phone_home", v)} />
+            </div>
+          </>
+        )}
 
-      <section className="bg-white rounded-card border border-council-navy/10 p-6 space-y-4">
-        <h2 className="font-display text-base text-council-navy">Licence Details</h2>
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Nurse Licence No." value={form.nurse_license_no} onChange={(v) => update("nurse_license_no", v)} />
-          <Field label="Nurse Licence Expiry" type="date" value={form.nurse_license_expiry} onChange={(v) => update("nurse_license_expiry", v)} />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Midwife Licence No." value={form.midwife_license_no} onChange={(v) => update("midwife_license_no", v)} />
-          <Field label="Midwife Licence Expiry" type="date" value={form.midwife_license_expiry} onChange={(v) => update("midwife_license_expiry", v)} />
-        </div>
-      </section>
+        {step === 2 && (
+          <>
+            <h2 className="font-display text-base text-council-navy">Professional Details</h2>
+            <Field label="Employer" required value={form.employer} onChange={(v) => update("employer", v)} />
+            <Field label="Place of Work" required value={form.place_of_work} onChange={(v) => update("place_of_work", v)} />
+            <div className="grid grid-cols-2 gap-4">
+              <label className="block">
+                <span className="font-body text-sm text-council-ink/70 block mb-1">Employment Sector</span>
+                <select value={form.employment_sector} onChange={(e) => update("employment_sector", e.target.value as "Government" | "Private")} className="w-full border border-council-navy/20 rounded-card px-3 py-2 font-body focus:outline-none focus:ring-2 focus:ring-council-cyan">
+                  <option value="Government">Government</option>
+                  <option value="Private">Private</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className="font-body text-sm text-council-ink/70 block mb-1">Service Category</span>
+                <select value={form.service_category} onChange={(e) => update("service_category", e.target.value as "Hospital" | "Community" | "Private" | "Unspecified")} className="w-full border border-council-navy/20 rounded-card px-3 py-2 font-body focus:outline-none focus:ring-2 focus:ring-council-cyan">
+                  <option value="Hospital">Hospital</option>
+                  <option value="Community">Community</option>
+                  <option value="Private">Private</option>
+                  <option value="Unspecified">Unspecified</option>
+                </select>
+              </label>
+            </div>
+            <Field label="Training Institute" value={form.training_institute} onChange={(v) => update("training_institute", v)} />
+          </>
+        )}
 
-      <section className="bg-white rounded-card border border-council-navy/10 p-6">
-        <label className="block">
-          <span className="font-body text-sm text-council-ink/70 block mb-1">Reason for change (optional)</span>
-          <textarea
-            value={form.reasonForChange}
-            onChange={(e) => update("reasonForChange", e.target.value)}
-            placeholder="e.g. Changed employer after transfer to Anse Royale Community Clinic"
-            rows={2}
-            className="w-full border border-council-navy/20 rounded-card px-3 py-2 font-body text-sm focus:outline-none focus:ring-2 focus:ring-council-cyan"
-          />
-          <span className="font-body text-xs text-council-ink/40 mt-1 block">
-            Helps whoever reviews this understand why you're making the change.
-          </span>
-        </label>
-      </section>
+        {step === 3 && (
+          <>
+            <h2 className="font-display text-base text-council-navy">Licence</h2>
+            <p className="font-body text-xs text-council-ink/50 mb-2">
+              These come from the Council's records and can't be edited here. To renew an expiring licence, use
+              "Request Renewal" below your details on the main profile page. For a correction to your licence
+              number, contact the Council office directly.
+            </p>
+            <ReadOnlyField label="Nurse Licence No." value={person.nurse_license_no} />
+            <ReadOnlyField label="Nurse Licence Expiry" value={person.nurse_license_expiry} />
+            <ReadOnlyField label="Midwife Licence No." value={person.midwife_license_no} />
+            <ReadOnlyField label="Midwife Licence Expiry" value={person.midwife_license_expiry} />
+          </>
+        )}
 
-      {error && <p className="font-body text-sm text-status-closed">{error}</p>}
+        {step === 4 && (
+          <>
+            <h2 className="font-display text-base text-council-navy">Special Licences</h2>
+            <p className="font-body text-xs text-council-ink/50 mb-2">
+              Additional certifications beyond your base Nurse/Midwife registration. Contact the Council office to
+              add a new one.
+            </p>
+            {specialLicenses.length === 0 ? (
+              <p className="font-body text-sm text-council-ink/40 italic">None on file.</p>
+            ) : (
+              <ul className="space-y-2">
+                {specialLicenses.map((l) => (
+                  <li key={l.id} className="bg-council-cream rounded-card px-3 py-2">
+                    <p className="font-body text-sm font-medium text-council-navy">{l.license_name}</p>
+                    <p className="font-body text-xs text-council-ink/50">
+                      {l.license_number && `${l.license_number} · `}
+                      {l.issued_date && `Issued ${l.issued_date}`}
+                      {l.expiry_date && ` · Expires ${l.expiry_date}`}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
 
-      <button
-        type="submit"
-        disabled={status === "saving"}
-        className="bg-council-navy text-white font-body font-medium rounded-card px-5 py-2.5 hover:bg-council-navyDeep transition-colors disabled:opacity-60"
-      >
-        {status === "saving" ? "Saving…" : "Save Changes"}
-      </button>
+        {step === 5 && (
+          <>
+            <h2 className="font-display text-base text-council-navy">Please Check Your Information</h2>
+            <ReviewSection title="Personal Details" onEdit={() => setStep(0)}>
+              {form.first_name} {form.last_name} · {form.sex} {form.date_of_birth && `· ${form.date_of_birth}`}
+            </ReviewSection>
+            <ReviewSection title="Contact Details" onEdit={() => setStep(1)}>
+              {form.address_line1} · {form.phone_mobile}
+            </ReviewSection>
+            <ReviewSection title="Professional Details" onEdit={() => setStep(2)}>
+              {form.employer} · {form.place_of_work} · {form.employment_sector}
+            </ReviewSection>
+            <ReviewSection title="Licence Details" onEdit={() => setStep(3)}>
+              Checked — not editable here
+            </ReviewSection>
+            <ReviewSection title="Special Licences" onEdit={() => setStep(4)}>
+              {specialLicenses.length} on file
+            </ReviewSection>
+            <label className="block pt-2">
+              <span className="font-body text-sm text-council-ink/70 block mb-1">Reason for change (optional)</span>
+              <textarea
+                value={form.reasonForChange}
+                onChange={(e) => update("reasonForChange", e.target.value)}
+                placeholder="e.g. Changed employer after transfer to Anse Royale Community Clinic"
+                rows={2}
+                className="w-full border border-council-navy/20 rounded-card px-3 py-2 font-body text-sm focus:outline-none focus:ring-2 focus:ring-council-cyan"
+              />
+              <span className="font-body text-xs text-council-ink/40 mt-1 block">
+                Helps whoever reviews this understand why you're making the change.
+              </span>
+            </label>
+          </>
+        )}
+
+        {error && <p className="font-body text-sm text-status-closed">{error}</p>}
+      </div>
+
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => setStep((s) => Math.max(0, s - 1))}
+          disabled={step === 0}
+          className="flex items-center gap-1 border border-council-navy/20 font-body text-sm font-medium rounded-card px-4 py-2 disabled:opacity-40"
+        >
+          <ArrowLeft size={14} aria-hidden="true" /> Back
+        </button>
+        {step < STEPS.length - 1 ? (
+          <button
+            onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}
+            disabled={!canAdvance()}
+            className="flex items-center gap-1 bg-council-navy text-white font-body text-sm font-medium rounded-card px-5 py-2.5 hover:bg-council-navyDeep transition-colors disabled:opacity-40"
+          >
+            Next <ArrowRight size={14} aria-hidden="true" />
+          </button>
+        ) : (
+          <button
+            onClick={handleSubmit}
+            disabled={status === "saving"}
+            className="bg-council-navy text-white font-body font-medium rounded-card px-5 py-2.5 hover:bg-council-navyDeep transition-colors disabled:opacity-60"
+          >
+            {status === "saving" ? "Submitting…" : "Submit Changes for Council Review"}
+          </button>
+        )}
+      </div>
       <p className="font-body text-xs text-council-ink/50">
         Changes are reviewed by the Council before they take effect on your active profile. Registration numbers
         cannot be changed here — contact the Council office for those.
       </p>
-    </form>
+    </div>
   );
 }
 
@@ -214,5 +339,30 @@ function Field({
         className="w-full border border-council-navy/20 rounded-card px-3 py-2 font-body focus:outline-none focus:ring-2 focus:ring-council-cyan"
       />
     </label>
+  );
+}
+
+function ReadOnlyField({ label, value }: { label: string; value: string | null }) {
+  return (
+    <div className="flex items-center justify-between bg-council-cream rounded-card px-3 py-2">
+      <span className="font-body text-sm text-council-ink/60">{label}</span>
+      <span className="font-body text-sm text-council-navy flex items-center gap-1.5">
+        {value || "—"} <span className="text-xs text-council-ink/40">🔒</span>
+      </span>
+    </div>
+  );
+}
+
+function ReviewSection({ title, onEdit, children }: { title: string; onEdit: () => void; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between border-b border-council-navy/10 pb-2">
+      <div>
+        <p className="font-body text-sm font-medium text-council-navy">{title}</p>
+        <p className="font-body text-xs text-council-ink/60">{children}</p>
+      </div>
+      <button type="button" onClick={onEdit} className="font-body text-xs text-council-cyan underline shrink-0 ml-3">
+        Edit
+      </button>
+    </div>
   );
 }
