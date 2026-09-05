@@ -2,39 +2,38 @@
 
 import { useState } from "react";
 import * as XLSX from "xlsx";
-import { Users, Vote, Award, Download } from "lucide-react";
+import { Users, Vote, Award, Download, FileText, Clock, RefreshCw, ClipboardCheck, ShieldCheck, ScrollText, BarChart3 } from "lucide-react";
+
+type DatasetKey =
+  | "register" | "nurses" | "midwives" | "licenses" | "expired_licenses" | "license_renewals"
+  | "special_licenses" | "pending_approvals" | "elections" | "candidates" | "voting_results"
+  | "councillors" | "admin_users" | "audit_log";
 
 interface DatasetInfo {
-  key: "register" | "candidates" | "councillors";
+  key: DatasetKey;
   label: string;
   description: string;
   icon: React.ElementType;
   color: string;
 }
 
+// Tonal shades of the same navy/cyan brand family throughout — no
+// unrelated rainbow of colors, matching the site-wide palette decision.
 const DATASETS: DatasetInfo[] = [
-  {
-    key: "register",
-    label: "Nurses & Midwives Register",
-    description: "Full register — registration numbers, category, status, employment details.",
-    icon: Users,
-    color: "#0B1F3A", // council-navy
-  },
-  {
-    key: "candidates",
-    label: "Election Candidates",
-    description: "All nominated and shortlisted candidates across every election round.",
-    icon: Vote,
-    color: "#17AEE0", // council-cyan
-  },
-  {
-    key: "councillors",
-    label: "Councillor Terms",
-    description: "Current and past Council terms — elected and appointed members.",
-    icon: Award,
-    color: "#060D1A", // council-navyDeep — three tonal shades of the same
-    // brand family instead of an unrelated green/purple/cyan mix.
-  },
+  { key: "register", label: "Complete Register", description: "Every nurse and midwife — registration, category, status, employment.", icon: Users, color: "#0B1F3A" },
+  { key: "nurses", label: "Nurse Database", description: "Register filtered to Nurse and Nurse/Midwife records only.", icon: Users, color: "#17AEE0" },
+  { key: "midwives", label: "Midwife Database", description: "Register filtered to Midwife and Nurse/Midwife records only.", icon: Users, color: "#5CC8ED" },
+  { key: "licenses", label: "Licence Database", description: "Every licence number, expiry date, and computed status.", icon: FileText, color: "#1B2074" },
+  { key: "expired_licenses", label: "Expired Licence Database", description: "Only records with an already-expired licence.", icon: Clock, color: "#8A2C2C" },
+  { key: "license_renewals", label: "Licence Renewal Database", description: "Every renewal request ever filed, approved or not.", icon: RefreshCw, color: "#14186B" },
+  { key: "special_licenses", label: "Special Licences", description: "Additional certifications beyond base Nurse/Midwife registration.", icon: Award, color: "#B8860B" },
+  { key: "pending_approvals", label: "Pending Approval Database", description: "Self-service edits currently awaiting Council review.", icon: ClipboardCheck, color: "#B8860B" },
+  { key: "elections", label: "Election Database", description: "Every election created — status, dates, publication state.", icon: Vote, color: "#060D1A" },
+  { key: "candidates", label: "Candidate Database", description: "All nominated, selected, and accepted candidates.", icon: Vote, color: "#17AEE0" },
+  { key: "voting_results", label: "Voting Results", description: "Aggregate vote tallies per candidate — never individual voter choices.", icon: BarChart3, color: "#1E7D4F" },
+  { key: "councillors", label: "Councillor Terms", description: "Current and past Council terms — elected and appointed members.", icon: Award, color: "#5F5E5A" },
+  { key: "admin_users", label: "Admin/User Database", description: "Staff accounts — title and permissions only, never credentials.", icon: ShieldCheck, color: "#0B1F3A" },
+  { key: "audit_log", label: "Audit Log", description: "Every recorded system action — the most recent 5,000 entries.", icon: ScrollText, color: "#8A2C2C" },
 ];
 
 async function fetchDataset(key: string): Promise<Record<string, unknown>[]> {
@@ -101,8 +100,8 @@ export function DataExportClient() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="font-body text-sm text-council-ink/60">
-          Download the system's live records as Excel or CSV. Files are generated in your browser — nothing is sent
-          anywhere.
+          Download the system's live records as Excel or CSV, independently or all at once. Files are generated
+          in your browser — nothing is sent anywhere. Every export is recorded in the Audit Log.
         </p>
         <button
           onClick={exportAll}
