@@ -16,13 +16,32 @@ export default async function PersonDetailPage({ params }: { params: { id: strin
   const admin = await requireAdmin();
   const supabase = createClient();
 
-  const { data: person } = await supabase
-    .from("people")
-    .select(
-      "id, first_name, last_name, sex, date_of_birth, nin, address_line1, address_line2, address_line3, phone_home, phone_mobile, nurse_reg_no, midwife_reg_no, professional_category, training_institute, employer, place_of_work, employment_sector, service_category, nurse_license_no, nurse_license_expiry, midwife_license_no, midwife_license_expiry, registration_status, is_active, is_deceased, profile_status, data_source"
-    )
-    .eq("id", params.id)
-    .single();
+  // NIN is only ever included in this query at all when the viewer is
+  // actually authorized — not just hidden in the rendered JSX. A value
+  // that's fetched and then conditionally hidden from display can still
+  // end up in the page's server-rendered data payload; excluding it from
+  // the select() itself means it never leaves the database for anyone
+  // who shouldn't see it. Two full, separately-written literal select
+  // strings rather than one built from a shared variable — Supabase's
+  // generated types can only be inferred from an actual string literal
+  // at the call site, not a concatenated runtime string.
+  const canSeeNin = canManageRegister(admin);
+
+  const { data: person } = canSeeNin
+    ? await supabase
+        .from("people")
+        .select(
+          "id, first_name, last_name, sex, date_of_birth, nin, address_line1, address_line2, address_line3, phone_home, phone_mobile, nurse_reg_no, midwife_reg_no, professional_category, training_institute, employer, place_of_work, employment_sector, service_category, nurse_license_no, nurse_license_expiry, midwife_license_no, midwife_license_expiry, registration_status, is_active, is_deceased, profile_status, data_source"
+        )
+        .eq("id", params.id)
+        .single()
+    : await supabase
+        .from("people")
+        .select(
+          "id, first_name, last_name, sex, date_of_birth, address_line1, address_line2, address_line3, phone_home, phone_mobile, nurse_reg_no, midwife_reg_no, professional_category, training_institute, employer, place_of_work, employment_sector, service_category, nurse_license_no, nurse_license_expiry, midwife_license_no, midwife_license_expiry, registration_status, is_active, is_deceased, profile_status, data_source"
+        )
+        .eq("id", params.id)
+        .single();
 
   if (!person) {
     return <EmptyState message="Record not found." backHref="/admin/register" backLabel="← Back to register" />;
@@ -81,7 +100,7 @@ export default async function PersonDetailPage({ params }: { params: { id: strin
         <h2 className="font-display text-base text-council-navy mb-4">Personal Details</h2>
         <dl className="grid grid-cols-2 gap-y-3 font-body text-sm">
           <Field label="Sex" value={person.sex} />
-          {canManageRegister(admin) && <Field label="N.I.N" value={person.nin} />}
+          {canSeeNin && <Field label="N.I.N" value={(person as any).nin} />}
           <Field label="Date of Birth" value={person.date_of_birth} />
           <Field label="Address" value={[person.address_line1, person.address_line2, person.address_line3].filter(Boolean).join(", ")} />
           <Field label="Mobile" value={person.phone_mobile} />
