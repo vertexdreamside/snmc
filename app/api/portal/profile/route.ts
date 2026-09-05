@@ -20,6 +20,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
+import { validateLicenseFormat } from "@/lib/licenses";
 
 const EDITABLE_FIELDS = [
   "first_name", "last_name", "sex", "date_of_birth", "nin",
@@ -66,6 +67,15 @@ export async function PATCH(request: Request) {
       { ok: false, reason: parsed.error.errors[0]?.message ?? "Invalid input." },
       { status: 400 }
     );
+  }
+
+  if (parsed.data.nurse_license_no) {
+    const check = validateLicenseFormat("nurse", parsed.data.nurse_license_no);
+    if (!check.valid) return NextResponse.json({ ok: false, reason: check.reason }, { status: 400 });
+  }
+  if (parsed.data.midwife_license_no) {
+    const check = validateLicenseFormat("midwife", parsed.data.midwife_license_no);
+    if (!check.valid) return NextResponse.json({ ok: false, reason: check.reason }, { status: 400 });
   }
 
   const admin = createServiceRoleClient();

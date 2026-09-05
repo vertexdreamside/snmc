@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/guards";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { validateLicenseFormat } from "@/lib/licenses";
 
 const updateSchema = z.object({
   action: z.enum(["approve", "reject", "mark_deceased", "edit_fields"]),
@@ -47,6 +48,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       // nurse_reg_no/midwife_reg_no (those are register-integrity fields,
       // not casual edits) or profile_status/registration_status (those
       // have their own dedicated actions above with proper audit labels).
+      // Licence numbers ARE editable here, but format-validated — Nurse
+      // licences must start with "LN", Midwife licences with "MW".
       const allowed = [
         "first_name",
         "last_name",
@@ -60,9 +63,24 @@ export async function PATCH(request: Request, { params }: { params: { id: string
         "employment_sector",
         "service_category",
         "training_institute",
+        "nurse_license_no",
+        "midwife_license_no",
+        "nurse_license_expiry",
+        "midwife_license_expiry",
       ];
       for (const key of Object.keys(parsed.data.fields ?? {})) {
-        if (allowed.includes(key)) update[key] = parsed.data.fields![key];
+        if (!allowed.includes(key)) continue;
+        const value = parsed.data.fields![key];
+        if (value === undefined) continue;
+        if (key === "nurse_license_no") {
+          const check = validateLicenseFormat("nurse", value);
+          if (!check.valid) return NextResponse.json({ ok: false, reason: check.reason }, { status: 400 });
+        }
+        if (key === "midwife_license_no") {
+          const check = validateLicenseFormat("midwife", value);
+          if (!check.valid) return NextResponse.json({ ok: false, reason: check.reason }, { status: 400 });
+        }
+        update[key] = value;
       }
       action = "admin_edited_fields";
       break;

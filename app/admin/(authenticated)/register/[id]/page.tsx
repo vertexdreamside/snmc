@@ -2,6 +2,8 @@ import { EmptyState } from "@/lib/components/EmptyState";
 import { requireAdmin } from "@/lib/auth/guards";
 import { createClient } from "@/lib/supabase/server";
 import { PersonActions } from "./PersonActions";
+import { categoryDisplay } from "@/lib/licenses";
+import { SpecialLicensesSection } from "./SpecialLicensesSection";
 
 export default async function PersonDetailPage({ params }: { params: { id: string } }) {
   await requireAdmin();
@@ -18,6 +20,12 @@ export default async function PersonDetailPage({ params }: { params: { id: strin
   if (!person) {
     return <EmptyState message="Record not found." backHref="/admin/register" backLabel="← Back to register" />;
   }
+
+  const { data: specialLicenses } = await supabase
+    .from("special_licenses")
+    .select("id, license_name, license_number, issued_date, expiry_date")
+    .eq("person_id", params.id)
+    .order("created_at", { ascending: false });
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -41,7 +49,7 @@ export default async function PersonDetailPage({ params }: { params: { id: strin
         <dl className="grid grid-cols-2 gap-y-3 font-body text-sm">
           <Field label="Registration Status" value={person.registration_status} />
           <Field label="Profile Status" value={person.profile_status} />
-          <Field label="Category" value={person.professional_category} />
+          <Field label="Category" value={categoryDisplay(person.professional_category)} />
           <Field label="Sex" value={person.sex} />
           <Field label="Employer" value={person.employer} />
           <Field label="Place of Work" value={person.place_of_work} />
@@ -58,6 +66,8 @@ export default async function PersonDetailPage({ params }: { params: { id: strin
           <Field label="Source" value={person.data_source} />
         </dl>
       </div>
+
+      <SpecialLicensesSection personId={person.id} licenses={specialLicenses ?? []} />
     </div>
   );
 }
