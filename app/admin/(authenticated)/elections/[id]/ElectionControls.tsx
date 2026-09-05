@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { computeElectionStageLabel } from "@/lib/elections/tally";
 
 // Round 1 = Nomination, Round 2 = Election — per the historical process
 // (Nomination_Paper_1st_Round_2012 / the 2nd-round ballot form) and
@@ -15,22 +16,40 @@ const STATUS_FLOW = [
   "Completed",
 ] as const;
 
-const ROUND_LABEL: Record<string, string> = {
-  Planned: "Not yet started",
-  "Nomination Open": "Round 1 — Nomination",
-  "Nomination Closed": "Round 1 — Nomination (closed)",
-  "Election Open": "Round 2 — Election",
-  "Election Closed": "Round 2 — Election (closed)",
-  Completed: "Completed",
-};
-
-export function ElectionControls({ electionId, status, resultsPublished, approvalStatus }: { electionId: string; status: string; resultsPublished: boolean; approvalStatus: string }) {
+export function ElectionControls({
+  electionId,
+  status,
+  resultsPublished,
+  approvalStatus,
+  round1CloseAt,
+  round2CloseAt,
+}: {
+  electionId: string;
+  status: string;
+  resultsPublished: boolean;
+  approvalStatus: string;
+  round1CloseAt: string | null;
+  round2CloseAt: string | null;
+}) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [confirmText, setConfirmText] = useState("");
   const [showConfirm, setShowConfirm] = useState(false);
 
   async function setStatus(newStatus: string) {
+    // "Add option to bypass" the default duration — closing a round
+    // early is already technically possible (nothing but the status
+    // field itself gates whether nominate/vote submissions are
+    // accepted), but it was previously an unlabeled side effect of the
+    // ordinary "advance" button rather than a deliberate, confirmed
+    // choice. This makes the early-close explicit.
+    const closeDate = newStatus === "Nomination Closed" ? round1CloseAt : newStatus === "Election Closed" ? round2CloseAt : null;
+    if (closeDate && new Date(closeDate) > new Date()) {
+      const daysLeft = Math.ceil((new Date(closeDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+      if (!confirm(`This round isn't scheduled to close for another ${daysLeft} day${daysLeft === 1 ? "" : "s"} (${new Date(closeDate).toLocaleDateString()}). Close it early anyway?`)) {
+        return;
+      }
+    }
     setBusy(true);
     await fetch(`/api/admin/elections/${electionId}`, {
       method: "PATCH",
@@ -64,6 +83,11 @@ export function ElectionControls({ electionId, status, resultsPublished, approva
   const currentIndex = STATUS_FLOW.indexOf(status as (typeof STATUS_FLOW)[number]);
   const next = STATUS_FLOW[currentIndex + 1];
 
+  function isEarlyClose(target: string): boolean {
+    const closeDate = target === "Nomination Closed" ? round1CloseAt : target === "Election Closed" ? round2CloseAt : null;
+    return !!closeDate && new Date(closeDate) > new Date();
+  }
+
   const round1Current = status === "Nomination Open";
   const round1Done = currentIndex >= STATUS_FLOW.indexOf("Nomination Closed");
   const round2Current = status === "Election Open";
@@ -79,7 +103,7 @@ export function ElectionControls({ electionId, status, resultsPublished, approva
 
       <div className="flex flex-wrap items-center gap-3">
         <span className="font-body text-sm text-council-ink/60">
-          Current status: <span className="font-medium text-council-navy">{ROUND_LABEL[status] ?? status}</span>
+          Current status: <span className="font-medium text-council-navy">{computeElectionStageLabel({ status, approval_status: approvalStatus, results_published: resultsPublished })}</span>
         </span>
         {next && (
           <button
@@ -87,7 +111,7 @@ export function ElectionControls({ electionId, status, resultsPublished, approva
             disabled={busy}
             className="bg-council-navy text-white font-body text-sm font-medium rounded-card px-4 py-2 hover:bg-council-navyDeep disabled:opacity-60"
           >
-            {busy ? "Updating…" : `Advance to "${next}"`}
+            {busy ? "Updating…" : isEarlyClose(next) ? `Close Early → "${next}"` : `Advance to "${next}"`}
           </button>
         )}
         <button
