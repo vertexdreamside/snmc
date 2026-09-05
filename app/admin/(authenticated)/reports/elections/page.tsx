@@ -54,12 +54,35 @@ export default async function ElectionReportsPage() {
               .sort((a, b) => b.votes - a.votes);
           }
 
+          // Nomination Report — Round 1 data (ranked by nomination count,
+          // with acceptance status), previously never surfaced as its
+          // own report anywhere; only visible live during an active
+          // election via the ranking panel, not retained as history.
+          const { data: nominationRows } = await supabase
+            .from("candidates")
+            .select("id, status, service_category, nomination_count, people:person_id(first_name, last_name)")
+            .eq("election_id", election.id)
+            .eq("category", category)
+            .order("nomination_count", { ascending: false });
+
+          const nominationReport = (nominationRows ?? []).map((n: any, i: number) => {
+            const p = Array.isArray(n.people) ? n.people[0] : n.people;
+            return {
+              rank: i + 1,
+              name: `${p?.first_name ?? ""} ${p?.last_name ?? ""}`.trim(),
+              votingGroup: n.service_category ?? "—",
+              nominationCount: n.nomination_count ?? 0,
+              status: n.status,
+            };
+          });
+
           return {
             category,
             eligible: eligible ?? 0,
             voted: voted ?? 0,
             turnout: (eligible ?? 0) > 0 ? (((voted ?? 0) / (eligible ?? 1)) * 100).toFixed(1) : "0.0",
             candidateResults,
+            nominationReport,
           };
         })
       );
@@ -70,8 +93,8 @@ export default async function ElectionReportsPage() {
   return (
     <div className="max-w-4xl">
       <p className="font-body text-sm text-council-ink/60 mb-4">
-        Election summary, turnout, and candidate results across every election — this is aggregate participation
-        and vote-tally data only; it never reveals what any individual person voted for.
+        Three separate reports per election — Nomination Report, Voting Results, and Voter Participation. Voter
+        Participation is aggregate turnout only; it never reveals what any individual person voted for.
       </p>
       <ElectionReportClient report={report} />
     </div>
