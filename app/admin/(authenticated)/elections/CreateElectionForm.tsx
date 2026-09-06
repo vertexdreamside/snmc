@@ -18,27 +18,47 @@ export function CreateElectionForm() {
   const [nominationDays, setNominationDays] = useState(14);
   const [votingDays, setVotingDays] = useState(7);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<{ summary: Record<string, Record<string, number>>; unspecifiedTotal: number } | null>(null);
 
   useEffect(() => {
     if (step === 2 && !summary) {
       fetch("/api/admin/register/voting-groups-summary")
         .then((r) => r.json())
-        .then((d) => d.ok && setSummary(d));
+        .then((d) => (d.ok ? setSummary(d) : setError(d.reason ?? "Could not load voting group counts.")))
+        .catch(() => setError("Could not load voting group counts — you can still create the election without this summary."));
     }
   }, [step, summary]);
 
   async function handleCreate() {
     setBusy(true);
-    const res = await fetch("/api/admin/elections", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ termLabel, nominationDurationDays: nominationDays, votingDurationDays: votingDays }),
-    });
-    const data = await res.json();
-    setBusy(false);
-    if (data.ok) {
-      router.push(`/admin/elections/${data.id}`);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/elections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ termLabel, nominationDurationDays: nominationDays, votingDurationDays: votingDays }),
+      });
+
+      const text = await res.text();
+      let data: { ok?: boolean; id?: string; reason?: string };
+      try {
+        data = JSON.parse(text);
+      } catch {
+        setBusy(false);
+        setError(`The server didn't return a valid response (status ${res.status}). This usually means the request never reached the election-creation logic at all — check that you're signed in with Elections permission.`);
+        return;
+      }
+
+      setBusy(false);
+      if (data.ok && data.id) {
+        router.push(`/admin/elections/${data.id}`);
+      } else {
+        setError(data.reason ?? "Could not create the election. Please try again.");
+      }
+    } catch (err) {
+      setBusy(false);
+      setError("Could not reach the server. Check your connection and try again.");
     }
   }
 
@@ -96,9 +116,11 @@ export function CreateElectionForm() {
             Automatically identified from the current register — anyone deceased or with an unconfirmed category is
             excluded, matching the same eligibility rules used at voting time.
           </p>
-          {!summary ? (
+          {!summary && !error ? (
             <p className="font-body text-sm text-council-ink/40">Loading…</p>
-          ) : (
+          ) : !summary && error ? (
+            <p className="font-body text-sm text-status-pending">{error} You can still proceed to create the election below.</p>
+          ) : summary ? (
             <div className="grid grid-cols-2 gap-4">
               {(["Nurse", "Midwife"] as const).map((category) => (
                 <div key={category} className="bg-council-cream rounded-card p-3">
@@ -117,7 +139,7 @@ export function CreateElectionForm() {
                 </p>
               )}
             </div>
-          )}
+          ) : null}
           <div className="flex gap-2">
             <button onClick={() => setStep(1)} className="flex items-center gap-1 border border-council-navy/20 font-body text-sm font-medium rounded-card px-4 py-2">
               <ArrowLeft size={14} aria-hidden="true" /> Back
@@ -126,6 +148,11 @@ export function CreateElectionForm() {
               {busy ? "Creating…" : "Create Election"}
             </button>
           </div>
+          {error && (
+            <div className="bg-status-closed/10 border border-status-closed/30 rounded-card p-3">
+              <p className="font-body text-sm text-status-closed">{error}</p>
+            </div>
+          )}
         </div>
       )}
     </div>
