@@ -16,13 +16,18 @@ export function BallotForm({
   electionId,
   round,
   sections,
+  votedCategories,
 }: {
   electionId: string;
   round: number;
   sections: { category: "Nurse" | "Midwife"; candidates: Candidate[] }[];
+  votedCategories: string[];
 }) {
   const [choices, setChoices] = useState<Record<string, string>>({});
-  const [submitted, setSubmitted] = useState<Record<string, boolean>>({});
+  const [submitted, setSubmitted] = useState<Record<string, boolean>>(
+    Object.fromEntries(votedCategories.map((c) => [c, true]))
+  );
+  const [receipts, setReceipts] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<string | null>(null);
 
@@ -43,6 +48,7 @@ export function BallotForm({
       return;
     }
     setSubmitted((s) => ({ ...s, [category]: true }));
+    if (data.receipt) setReceipts((r) => ({ ...r, [category]: data.receipt }));
   }
 
   return (
@@ -55,7 +61,19 @@ export function BallotForm({
           </p>
 
           {submitted[category] ? (
-            <p className="font-body text-sm text-status-active">Your vote has been recorded.</p>
+            <div>
+              <p className="font-body text-sm text-status-active">Your vote has been recorded.</p>
+              {receipts[category] ? (
+                <p className="font-body text-xs text-council-ink/50 mt-1">
+                  Reference: <span className="font-mono">{receipts[category]}</span> — keep this as proof you voted.
+                  It doesn't reveal your choice to anyone, including the Council.
+                </p>
+              ) : (
+                <p className="font-body text-xs text-council-ink/50 mt-1">
+                  You've already voted in this category — each person gets one vote per round.
+                </p>
+              )}
+            </div>
           ) : candidates.length === 0 ? (
             <p className="font-body text-sm text-council-ink/50">No shortlisted candidates yet in this category.</p>
           ) : (

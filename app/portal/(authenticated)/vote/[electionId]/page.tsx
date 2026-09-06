@@ -51,6 +51,22 @@ export default async function VotePage({ params }: { params: { electionId: strin
   // candidates — serviceCategoryMatches handles the "unspecified/Private
   // = eligible for both" fallback so the ~two-thirds of the register
   // without a service_category on file aren't silently locked out.
+  // Section 20: "A user must not be able to bypass this by manipulating
+  // the URL, browser, API request or frontend." The database already
+  // enforces this correctly (verified: zero duplicate votes exist) —
+  // this check was the missing piece on the DISPLAY side: without it,
+  // logging back in showed the full ballot again, which looks exactly
+  // like "you can vote again" even though a real resubmission would be
+  // silently rejected by the database. Checked per category, matching
+  // the same pattern already used on the nomination page.
+  const { data: existingVotes } = await supabase
+    .from("vote_participation")
+    .select("category")
+    .eq("election_id", election.id)
+    .eq("round", round)
+    .eq("voter_id", person.id);
+  const votedCategories = new Set((existingVotes ?? []).map((v) => v.category));
+
   const sections = await Promise.all(
     eligibleCategories.map(async (category) => {
       const { data } = await supabase
@@ -86,7 +102,7 @@ export default async function VotePage({ params }: { params: { electionId: strin
       {eligibleCategories.length === 0 ? (
         <EmptyState message="You're not currently eligible to vote." backHref="/portal" backLabel="← Back to portal" />
       ) : (
-        <BallotForm electionId={election.id} round={round} sections={sections} />
+        <BallotForm electionId={election.id} round={round} sections={sections} votedCategories={Array.from(votedCategories)} />
       )}
     </div>
   );
