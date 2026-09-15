@@ -25,7 +25,7 @@ export async function requirePortalUser(): Promise<Person> {
   const { data: person, error } = await supabase
     .from("people")
     .select(
-      "id, first_name, last_name, sex, date_of_birth, address_line1, address_line2, address_line3, phone_home, phone_mobile, nurse_reg_no, midwife_reg_no, professional_category, training_institute, employer, place_of_work, employment_sector, service_category, nurse_license_no, nurse_license_expiry, midwife_license_no, midwife_license_expiry, registration_status, is_active, is_deceased, profile_status, category_confirmed, data_source, created_at, updated_at"
+      "id, first_name, last_name, sex, date_of_birth, nationality, address_line1, address_line2, address_line3, phone_home, phone_mobile, nurse_reg_no, midwife_reg_no, professional_category, training_institute, employer, place_of_work, employment_sector, service_category, nurse_license_no, nurse_license_expiry, midwife_license_no, midwife_license_expiry, registration_status, is_active, is_deceased, profile_status, category_confirmed, data_source, created_at, updated_at"
     )
     .eq("auth_user_id", user.id)
     .single();

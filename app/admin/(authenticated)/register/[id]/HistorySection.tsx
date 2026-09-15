@@ -32,7 +32,7 @@ const ACTION_LABELS: Record<string, string> = {
 
 const FIELD_LABELS: Record<string, string> = {
   first_name: "First Name", last_name: "Last Name", sex: "Sex", date_of_birth: "Date of Birth",
-  nin: "NIN", address_line1: "Address Line 1", phone_home: "Home Phone", phone_mobile: "Mobile",
+  nin: "NIN", nationality: "Nationality", address_line1: "Address Line 1", phone_home: "Home Phone", phone_mobile: "Mobile",
   employer: "Employer", place_of_work: "Place of Work", employment_sector: "Employment Sector",
   service_category: "Service Category", training_institute: "Training Institute",
   nurse_license_no: "Nurse Licence No.", nurse_license_expiry: "Nurse Licence Expiry",

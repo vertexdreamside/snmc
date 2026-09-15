@@ -13,7 +13,7 @@ export type RegistrationStatus =
 
 export type ProfessionalCategory = "Nurse" | "Midwife" | "Both";
 export type ProfileStatus = "Approved" | "Pending Review" | "Rejected";
-export type ServiceCategory = "Hospital" | "Community" | "Private" | "Unspecified";
+export type ServiceCategory = "Hospital" | "Community" | "Private" | "Unspecified" | "Education" | "Regulatory" | "Retired" | "Unemployed";
 export type AdminPermission = "reports" | "register" | "elections" | "users";
 export type ElectionStatus =
   | "Planned"
@@ -45,6 +45,7 @@ export interface Person {
   place_of_work: string | null;
   employment_sector: "Government" | "Private" | null;
   service_category: ServiceCategory | null;
+  nationality: string | null;
   nurse_license_no: string | null;
   nurse_license_expiry: string | null;
   nurse_license_renewed: string | null;

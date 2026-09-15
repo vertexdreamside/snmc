@@ -32,7 +32,7 @@ import { z } from "zod";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 
 const EDITABLE_FIELDS = [
-  "first_name", "last_name", "sex", "date_of_birth", "nin",
+  "first_name", "last_name", "sex", "date_of_birth", "nin", "nationality",
   "address_line1", "address_line2", "address_line3", "phone_home", "phone_mobile",
   "employer", "place_of_work", "employment_sector", "service_category", "training_institute",
 ] as const;
@@ -43,6 +43,7 @@ const profileUpdateSchema = z.object({
   sex: z.enum(["M", "F", "Unknown"]).optional(),
   date_of_birth: z.string().optional().nullable(),
   nin: z.string().optional().default(""),
+  nationality: z.string().optional().default(""),
   address_line1: z.string().min(1, "Address is required"),
   address_line2: z.string().optional().default(""),
   address_line3: z.string().optional().default(""),
@@ -51,7 +52,7 @@ const profileUpdateSchema = z.object({
   employer: z.string().min(1, "Employer is required"),
   place_of_work: z.string().min(1, "Place of work is required"),
   employment_sector: z.enum(["Government", "Private"]).optional(),
-  service_category: z.enum(["Hospital", "Community", "Private", "Unspecified"]).optional(),
+  service_category: z.enum(["Hospital", "Community", "Private", "Unspecified", "Education", "Regulatory", "Retired", "Unemployed"]).optional(),
   training_institute: z.string().optional().default(""),
   reasonForChange: z.string().optional(),
 });

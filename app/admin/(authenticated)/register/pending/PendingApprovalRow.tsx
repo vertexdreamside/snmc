@@ -6,7 +6,7 @@ import Link from "next/link";
 
 const FIELD_LABELS: Record<string, string> = {
   first_name: "First Name", last_name: "Last Name", sex: "Sex", date_of_birth: "Date of Birth",
-  nin: "NIN", address_line1: "Address Line 1", address_line2: "Address Line 2", address_line3: "Address Line 3",
+  nin: "NIN", nationality: "Nationality", address_line1: "Address Line 1", address_line2: "Address Line 2", address_line3: "Address Line 3",
   phone_home: "Home Phone", phone_mobile: "Mobile", employer: "Employer", place_of_work: "Place of Work",
   employment_sector: "Employment Sector", service_category: "Service Category", training_institute: "Training Institute",
   nurse_license_no: "Nurse Licence No.", nurse_license_expiry: "Nurse Licence Expiry",

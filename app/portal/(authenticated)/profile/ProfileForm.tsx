@@ -42,6 +42,7 @@ export function ProfileForm({ person, specialLicenses, hasNinOnFile }: { person:
     sex: person.sex ?? "Unknown",
     date_of_birth: person.date_of_birth ?? "",
     nin: "", // write-only — never pre-filled or shown back, see API comment
+    nationality: person.nationality ?? "",
     address_line1: person.address_line1 ?? "",
     address_line2: person.address_line2 ?? "",
     address_line3: person.address_line3 ?? "",
@@ -191,6 +192,7 @@ export function ProfileForm({ person, specialLicenses, hasNinOnFile }: { person:
               identification document, including the hyphen (-).
               {hasNinOnFile && " Your current NIN isn't shown here for privacy — leave this blank to keep it as-is."}
             </p>
+            <Field label="Nationality" value={form.nationality} onChange={(v) => update("nationality", v)} placeholder="e.g. Seychellois" />
           </>
         )}
 
@@ -222,10 +224,14 @@ export function ProfileForm({ person, specialLicenses, hasNinOnFile }: { person:
               </label>
               <label className="block">
                 <span className="font-body text-sm text-council-ink/70 block mb-1">Service Category</span>
-                <select value={form.service_category} onChange={(e) => update("service_category", e.target.value as "Hospital" | "Community" | "Private")} className="w-full border border-council-navy/20 rounded-card px-3 py-2 font-body focus:outline-none focus:ring-2 focus:ring-council-cyan">
+                <select value={form.service_category} onChange={(e) => update("service_category", e.target.value as "Hospital" | "Community" | "Private" | "Education" | "Regulatory" | "Retired" | "Unemployed")} className="w-full border border-council-navy/20 rounded-card px-3 py-2 font-body focus:outline-none focus:ring-2 focus:ring-council-cyan">
                   <option value="Hospital">Hospital</option>
                   <option value="Community">Community</option>
                   <option value="Private">Private</option>
+                  <option value="Education">Education</option>
+                  <option value="Regulatory">Regulatory</option>
+                  <option value="Retired">Retired</option>
+                  <option value="Unemployed">Unemployed</option>
                 </select>
               </label>
             </div>

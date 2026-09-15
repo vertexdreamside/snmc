@@ -31,14 +31,14 @@ export default async function PersonDetailPage({ params }: { params: { id: strin
     ? await supabase
         .from("people")
         .select(
-          "id, first_name, last_name, sex, date_of_birth, nin, address_line1, address_line2, address_line3, phone_home, phone_mobile, nurse_reg_no, midwife_reg_no, professional_category, training_institute, employer, place_of_work, employment_sector, service_category, nurse_license_no, nurse_license_expiry, midwife_license_no, midwife_license_expiry, registration_status, is_active, is_deceased, profile_status, data_source"
+          "id, first_name, last_name, sex, date_of_birth, nin, nationality, address_line1, address_line2, address_line3, phone_home, phone_mobile, nurse_reg_no, midwife_reg_no, professional_category, training_institute, employer, place_of_work, employment_sector, service_category, nurse_license_no, nurse_license_expiry, midwife_license_no, midwife_license_expiry, registration_status, is_active, is_deceased, profile_status, data_source"
         )
         .eq("id", params.id)
         .single()
     : await supabase
         .from("people")
         .select(
-          "id, first_name, last_name, sex, date_of_birth, address_line1, address_line2, address_line3, phone_home, phone_mobile, nurse_reg_no, midwife_reg_no, professional_category, training_institute, employer, place_of_work, employment_sector, service_category, nurse_license_no, nurse_license_expiry, midwife_license_no, midwife_license_expiry, registration_status, is_active, is_deceased, profile_status, data_source"
+          "id, first_name, last_name, sex, date_of_birth, nationality, address_line1, address_line2, address_line3, phone_home, phone_mobile, nurse_reg_no, midwife_reg_no, professional_category, training_institute, employer, place_of_work, employment_sector, service_category, nurse_license_no, nurse_license_expiry, midwife_license_no, midwife_license_expiry, registration_status, is_active, is_deceased, profile_status, data_source"
         )
         .eq("id", params.id)
         .single();
@@ -100,6 +100,7 @@ export default async function PersonDetailPage({ params }: { params: { id: strin
         <h2 className="font-display text-base text-council-navy mb-4">Personal Details</h2>
         <dl className="grid grid-cols-2 gap-y-3 font-body text-sm">
           <Field label="Sex" value={person.sex} />
+          <Field label="Nationality" value={(person as any).nationality} />
           {canSeeNin && <Field label="N.I.N" value={(person as any).nin} />}
           <Field label="Date of Birth" value={person.date_of_birth} />
           <Field label="Address" value={[person.address_line1, person.address_line2, person.address_line3].filter(Boolean).join(", ")} />

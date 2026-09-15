@@ -62,6 +62,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       const allowed = [
         "first_name",
         "last_name",
+        "nationality",
         "address_line1",
         "address_line2",
         "address_line3",

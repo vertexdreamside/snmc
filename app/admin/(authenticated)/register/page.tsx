@@ -1,15 +1,17 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth/guards";
 import { createClient } from "@/lib/supabase/server";
+import { ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 
 const STATUS_OPTIONS = ["Practising", "Not Practising", "Retired", "Abroad", "Deceased", "Deleted", "Unknown"];
 const PROFILE_STATUS_OPTIONS = ["Approved", "Pending Review", "Rejected"];
 const PAGE_SIZE = 100;
+const SORTABLE_COLUMNS = ["last_name", "first_name"] as const;
 
 export default async function AdminRegisterPage({
   searchParams,
 }: {
-  searchParams: { q?: string; status?: string; profile_status?: string; page?: string };
+  searchParams: { q?: string; status?: string; profile_status?: string; page?: string; sort?: string; dir?: string };
 }) {
   await requireAdmin();
   const supabase = createClient();
@@ -18,12 +20,18 @@ export default async function AdminRegisterPage({
   const from = (currentPage - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
 
+  // Sort by Name/Surname, ascending or descending — defaults to last
+  // name ascending, matching the previous fixed behavior, but both the
+  // column and direction are now genuinely selectable.
+  const sortColumn = SORTABLE_COLUMNS.includes(searchParams.sort as any) ? (searchParams.sort as (typeof SORTABLE_COLUMNS)[number]) : "last_name";
+  const sortAscending = searchParams.dir !== "desc";
+
   let query = supabase
     .from("people")
     .select("id, first_name, last_name, nurse_reg_no, midwife_reg_no, professional_category, registration_status, profile_status", {
       count: "exact",
     })
-    .order("last_name")
+    .order(sortColumn, { ascending: sortAscending })
     .range(from, to);
 
   if (searchParams.q) {
@@ -52,7 +60,21 @@ export default async function AdminRegisterPage({
     if (searchParams.q) params.set("q", searchParams.q);
     if (searchParams.status) params.set("status", searchParams.status);
     if (searchParams.profile_status) params.set("profile_status", searchParams.profile_status);
+    if (searchParams.sort) params.set("sort", searchParams.sort);
+    if (searchParams.dir) params.set("dir", searchParams.dir);
     params.set("page", String(page));
+    return `/admin/register?${params.toString()}`;
+  }
+
+  function sortHref(column: (typeof SORTABLE_COLUMNS)[number]) {
+    const params = new URLSearchParams();
+    if (searchParams.q) params.set("q", searchParams.q);
+    if (searchParams.status) params.set("status", searchParams.status);
+    if (searchParams.profile_status) params.set("profile_status", searchParams.profile_status);
+    params.set("sort", column);
+    // Clicking the currently-active column flips direction; clicking a
+    // different column starts fresh at ascending.
+    params.set("dir", sortColumn === column && sortAscending ? "desc" : "asc");
     return `/admin/register?${params.toString()}`;
   }
 
@@ -110,7 +132,12 @@ export default async function AdminRegisterPage({
         <table className="w-full font-body text-sm">
           <thead className="bg-council-cream text-council-ink/60 text-left">
             <tr>
-              <th className="px-4 py-3">Name</th>
+              <th className="px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <SortableHeader label="Last Name" href={sortHref("last_name")} active={sortColumn === "last_name"} ascending={sortAscending} />
+                  <SortableHeader label="First Name" href={sortHref("first_name")} active={sortColumn === "first_name"} ascending={sortAscending} />
+                </div>
+              </th>
               <th className="px-4 py-3">Reg. No.</th>
               <th className="px-4 py-3">Category</th>
               <th className="px-4 py-3">Status</th>
@@ -182,6 +209,15 @@ function PageLink({ href, disabled, children }: { href: string; disabled: boolea
       className="font-body text-xs text-council-navy border border-council-navy/20 rounded-card px-3 py-1.5 hover:bg-council-cream"
     >
       {children}
+    </Link>
+  );
+}
+
+function SortableHeader({ label, href, active, ascending }: { label: string; href: string; active: boolean; ascending: boolean }) {
+  return (
+    <Link href={href} className={`flex items-center gap-1 hover:text-council-navy ${active ? "text-council-navy font-medium" : ""}`}>
+      {label}
+      {active ? ascending ? <ArrowUp size={12} aria-hidden="true" /> : <ArrowDown size={12} aria-hidden="true" /> : <ArrowUpDown size={12} className="opacity-40" aria-hidden="true" />}
     </Link>
   );
 }
