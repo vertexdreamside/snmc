@@ -11,6 +11,8 @@ export function LicenseDocumentCell({ personId, licenseType, document }: { perso
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [rejecting, setRejecting] = useState(false);
+  const [reason, setReason] = useState("");
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -34,11 +36,13 @@ export function LicenseDocumentCell({ personId, licenseType, document }: { perso
     if (data.ok) window.open(data.url, "_blank", "noopener,noreferrer");
   }
 
-  async function handleReview(status: "Approved" | "Rejected") {
+  async function handleReview(status: "Approved" | "Rejected", comment?: string) {
     if (!document) return;
     setBusy(true);
-    await fetch(`/api/admin/license-documents/${document.id}/review`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
+    await fetch(`/api/admin/license-documents/${document.id}/review`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status, comment }) });
     setBusy(false);
+    setRejecting(false);
+    setReason("");
     router.refresh();
   }
 
@@ -58,10 +62,24 @@ export function LicenseDocumentCell({ personId, licenseType, document }: { perso
     <div className="flex items-center gap-1.5 flex-wrap">
       <button onClick={handleView} className="flex items-center gap-1 text-xs text-council-navy underline"><FileText size={12} aria-hidden="true" /> View</button>
       {document.status === "Pending" ? (
-        <>
-          <button onClick={() => handleReview("Approved")} disabled={busy} className="text-status-active" title="Approve"><Check size={14} aria-hidden="true" /></button>
-          <button onClick={() => handleReview("Rejected")} disabled={busy} className="text-status-closed" title="Reject"><X size={14} aria-hidden="true" /></button>
-        </>
+        rejecting ? (
+          <div className="flex items-center gap-1">
+            <input
+              type="text"
+              placeholder="Reason for rejection — required"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className="text-xs border border-council-navy/20 rounded-card px-1.5 py-0.5 w-40"
+            />
+            <button onClick={() => handleReview("Rejected", reason)} disabled={busy || !reason.trim()} className="text-status-closed text-xs disabled:opacity-40">Confirm</button>
+            <button onClick={() => setRejecting(false)} className="text-council-ink/40 text-xs">Cancel</button>
+          </div>
+        ) : (
+          <>
+            <button onClick={() => handleReview("Approved")} disabled={busy} className="text-status-active" title="Approve"><Check size={14} aria-hidden="true" /></button>
+            <button onClick={() => setRejecting(true)} disabled={busy} className="text-status-closed" title="Reject"><X size={14} aria-hidden="true" /></button>
+          </>
+        )
       ) : (
         <span className={`text-xs font-medium ${document.status === "Approved" ? "text-status-active" : "text-status-closed"}`}>{document.status}</span>
       )}
