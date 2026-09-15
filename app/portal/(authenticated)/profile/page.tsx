@@ -4,6 +4,7 @@ import { ProfileForm } from "./ProfileForm";
 import { categoryDisplay } from "@/lib/licenses";
 import { AlertTriangle } from "lucide-react";
 import { RenewalRequestForm } from "./RenewalRequestForm";
+import { NameChangeRequestForm } from "./NameChangeRequestForm";
 
 const REMINDER_WINDOW_DAYS = 90;
 
@@ -37,6 +38,12 @@ function upcomingExpiryWarning(nurseExpiry: string | null, midwifeExpiry: string
 export default async function ProfilePage() {
   const person = await requirePortalUser();
   const supabase = createClient();
+
+  const { count: pendingNameChange } = await supabase
+    .from("name_change_requests")
+    .select("*", { count: "exact", head: true })
+    .eq("person_id", person.id)
+    .eq("status", "Pending");
 
   // Only ever checked as a boolean, never fetched or shown as a value —
   // this determines whether NIN can be skipped this time (Section 13.4:
@@ -187,6 +194,8 @@ export default async function ProfilePage() {
       </section>
 
       <RenewalRequestForm hasNurse={!!person.nurse_reg_no} hasMidwife={!!person.midwife_reg_no} />
+
+      <NameChangeRequestForm hasPendingRequest={(pendingNameChange ?? 0) > 0} />
 
       <ProfileForm person={person} specialLicenses={specialLicenses ?? []} hasNinOnFile={hasNinOnFile} />
     </div>

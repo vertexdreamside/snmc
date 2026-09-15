@@ -68,6 +68,12 @@ export default async function PersonDetailPage({ params }: { params: { id: strin
     .eq("person_id", params.id)
     .order("submitted_at", { ascending: false });
 
+  const { data: nameChangeHistory } = await supabase
+    .from("name_change_requests")
+    .select("id, previous_first_name, previous_last_name, requested_first_name, requested_last_name, reason, status, submitted_at, reviewed_at, review_comment")
+    .eq("person_id", params.id)
+    .order("submitted_at", { ascending: false });
+
   const { data: history } = await supabase
     .from("audit_log")
     .select("id, action, details, created_at")
@@ -149,6 +155,29 @@ export default async function PersonDetailPage({ params }: { params: { id: strin
                 </p>
                 <p className="text-xs text-council-ink/40">
                   Submitted {new Date(r.submitted_at).toLocaleDateString()}
+                  {r.reviewed_at && ` · Reviewed ${new Date(r.reviewed_at).toLocaleDateString()}`}
+                  {r.review_comment && ` · "${r.review_comment}"`}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {nameChangeHistory && nameChangeHistory.length > 0 && (
+        <div className="bg-white rounded-card border border-council-navy/10 p-6">
+          <h2 className="font-display text-base text-council-navy mb-4">Name Change History</h2>
+          <ul className="space-y-2">
+            {nameChangeHistory.map((r) => (
+              <li key={r.id} className="font-body text-sm border-l-2 border-council-navy/10 pl-3">
+                <p>
+                  {r.previous_first_name} {r.previous_last_name} → {r.requested_first_name} {r.requested_last_name}{" "}
+                  <span className={r.status === "Approved" ? "text-status-active" : r.status === "Rejected" ? "text-status-closed" : "text-status-pending"}>
+                    ({r.status})
+                  </span>
+                </p>
+                <p className="text-xs text-council-ink/40">
+                  Reason: {r.reason} · Submitted {new Date(r.submitted_at).toLocaleDateString()}
                   {r.reviewed_at && ` · Reviewed ${new Date(r.reviewed_at).toLocaleDateString()}`}
                   {r.review_comment && ` · "${r.review_comment}"`}
                 </p>

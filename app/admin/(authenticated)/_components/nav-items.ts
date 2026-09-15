@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   CalendarClock,
   RefreshCw,
+  UserCog,
 } from "lucide-react";
 import type { AdminPermission } from "@/lib/types/database";
 
@@ -35,6 +36,7 @@ export const NAV_GROUPS: {
       { href: "/admin/register/pending", label: "Pending Approval", icon: ClipboardCheck, permissions: ["register"] },
       { href: "/admin/register/license-expiry", label: "Licence Expiry", icon: CalendarClock, permissions: ["register"] },
       { href: "/admin/register/renewals", label: "Licence Renewals", icon: RefreshCw, permissions: ["register"] },
+      { href: "/admin/register/name-changes", label: "Name Change Requests", icon: UserCog, permissions: ["register"] },
       {
         href: "/admin/register/classify",
         label: "License Approval",
