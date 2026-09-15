@@ -12,6 +12,7 @@ import { ExtendElectionForm } from "./ExtendElectionForm";
 import { ElectionSummary } from "./ElectionSummary";
 import { ApprovalPanel } from "./ApprovalPanel";
 import { ElectionStageStepper } from "./ElectionStageStepper";
+import { ScheduleForm } from "./ScheduleForm";
 import { IntegrityCheck } from "./IntegrityCheck";
 import { DisputeRecountPanel } from "./DisputeRecountPanel";
 
@@ -21,7 +22,7 @@ export default async function ElectionDetailPage({ params }: { params: { id: str
 
   const { data: election } = await supabase
     .from("elections")
-    .select("id, term_label, status, results_published, live_results_visible, round1_close_at, round2_close_at, approval_status, approved_by, approved_at, approval_reference, approval_notes")
+    .select("id, term_label, status, results_published, live_results_visible, round1_open_at, round1_close_at, round2_open_at, round2_close_at, approval_status, approved_by, approved_at, approval_reference, approval_notes")
     .eq("id", params.id)
     .single();
 
@@ -74,6 +75,14 @@ export default async function ElectionDetailPage({ params }: { params: { id: str
       </div>
 
       <ElectionStageStepper election={election} />
+
+      <ScheduleForm
+        electionId={election.id}
+        round1OpenAt={election.round1_open_at}
+        round1CloseAt={election.round1_close_at}
+        round2OpenAt={election.round2_open_at}
+        round2CloseAt={election.round2_close_at}
+      />
 
       <div className="bg-white rounded-card border border-council-navy/10 p-6 space-y-4">
         <ElectionControls

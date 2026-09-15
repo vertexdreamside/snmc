@@ -16,6 +16,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { isEligible } from "@/lib/auth/eligibility";
+import { isWithinScheduledWindow } from "@/lib/elections/schedule";
 import { SNMC_CONTACT } from "@/lib/components/ContactFooter";
 
 const nominateSchema = z.object({
@@ -60,9 +61,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, reason }, { status: 403 });
   }
 
-  const { data: election } = await supabase.from("elections").select("status").eq("id", electionId).single();
+  const { data: election } = await supabase.from("elections").select("status, round1_open_at, round1_close_at").eq("id", electionId).single();
   if (!election || election.status !== "Nomination Open") {
     return NextResponse.json({ ok: false, reason: "Nominations aren't currently open for this election." }, { status: 403 });
+  }
+
+  // Section 7: enforced independently of the status field above — a
+  // scheduled open/close time is real even if an admin hasn't (or
+  // forgot to) manually advance the status to match.
+  const scheduleCheck = isWithinScheduledWindow(election.round1_open_at, election.round1_close_at);
+  if (!scheduleCheck.allowed) {
+    return NextResponse.json({ ok: false, reason: scheduleCheck.reason }, { status: 403 });
   }
 
   const admin = createServiceRoleClient();

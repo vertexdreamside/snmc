@@ -7,6 +7,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { isEligible, serviceCategoryMatches } from "@/lib/auth/eligibility";
+import { isWithinScheduledWindow } from "@/lib/elections/schedule";
 import { SNMC_CONTACT } from "@/lib/components/ContactFooter";
 
 const castVoteSchema = z.object({
@@ -56,9 +57,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, reason }, { status: 403 });
   }
 
-  const { data: election } = await supabase.from("elections").select("status").eq("id", electionId).single();
+  const { data: election } = await supabase.from("elections").select("status, round2_open_at, round2_close_at").eq("id", electionId).single();
   if (!election || election.status !== "Election Open") {
     return NextResponse.json({ ok: false, reason: "Voting is not currently open." }, { status: 403 });
+  }
+
+  const scheduleCheck = isWithinScheduledWindow(election.round2_open_at, election.round2_close_at);
+  if (!scheduleCheck.allowed) {
+    return NextResponse.json({ ok: false, reason: scheduleCheck.reason }, { status: 403 });
   }
 
   // Use the service-role client for the actual writes so we can do them as

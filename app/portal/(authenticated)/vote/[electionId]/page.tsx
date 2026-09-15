@@ -10,7 +10,7 @@ export default async function VotePage({ params }: { params: { electionId: strin
 
   const { data: election } = await supabase
     .from("elections")
-    .select("id, term_label, status")
+    .select("id, term_label, status, round2_open_at, round2_close_at")
     .eq("id", params.electionId)
     .single();
 
@@ -25,8 +25,19 @@ export default async function VotePage({ params }: { params: { electionId: strin
   const isOpen = election.status === "Election Open";
 
   if (!isOpen) {
+    // Section 7: "Display a countdown or clear indication of when
+    // voting will open/close" — shown even before the status has been
+    // manually advanced, since the scheduled time is what actually
+    // matters to a voter waiting for their chance to vote.
+    const now = Date.now();
+    let message = `Voting for ${election.term_label} is not currently open.`;
+    if (election.round2_open_at && new Date(election.round2_open_at).getTime() > now) {
+      message = `Voting for ${election.term_label} opens on ${new Date(election.round2_open_at).toLocaleString()}.`;
+    } else if (election.round2_close_at && new Date(election.round2_close_at).getTime() <= now) {
+      message = `Voting for ${election.term_label} has closed.`;
+    }
     return (
-      <EmptyState message={`Voting for ${election.term_label} is not currently open.`} backHref="/portal" backLabel="← Back to portal" />
+      <EmptyState message={message} backHref="/portal" backLabel="← Back to portal" />
     );
   }
 
