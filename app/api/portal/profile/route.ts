@@ -90,10 +90,23 @@ export async function PATCH(request: Request) {
   // it's not a people column, and left in `cleaned` it would get spread
   // straight into the update() call below and error.
   const { reasonForChange, ...dataFields } = parsed.data;
-  const cleaned = {
+  const cleaned: Record<string, unknown> = {
     ...dataFields,
     date_of_birth: parsed.data.date_of_birth || null,
   };
+
+  // NIN is a genuine data-loss trap otherwise: it's deliberately NEVER
+  // pre-filled in the form for privacy (see ProfileForm.tsx), so it
+  // arrives here as an empty string on every submission where the person
+  // doesn't retype it — which the UI explicitly tells them they don't
+  // need to do ("leave this blank to keep it as-is"). Without this
+  // check, every single profile edit that touched any OTHER field would
+  // silently wipe out a previously-saved NIN. Only ever include it in
+  // the update (and therefore the diff below) when something was
+  // actually typed.
+  if (!parsed.data.nin) {
+    delete cleaned.nin;
+  }
 
   // Build an actual before/after diff of only what's genuinely changing —
   // this is what lets the admin's Pending Approval queue show real
