@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 // Completes the login flow started in lib/auth/identify.ts. Supabase's
 // magic-link verification redirects here with the session token in the
@@ -15,7 +16,18 @@ import { useEffect, useState } from "react";
 // bounced straight back to login on the very next page load. Routing the
 // actual session-establishment through our own server route closes that
 // gap.
+//
+// This previously hardcoded the final destination to "/portal" no
+// matter what — meaning a Councillor who followed the "Councillor
+// Portal" link, and had to log in along the way, ALWAYS landed on the
+// generic Nurse/Midwife portal instead of /council, with no indication
+// anything had gone wrong. Fixed by reading the "next" query param
+// (set by lib/auth/identify.ts on the callback URL itself, which
+// survives the whole magic-link round trip since it sits before the
+// #fragment Supabase appends the tokens to).
 export default function AuthCallbackPage() {
+  const searchParams = useSearchParams();
+  const next = searchParams.get("next") ?? "/portal";
   const [status, setStatus] = useState<"working" | "error">("working");
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
 
@@ -47,11 +59,11 @@ export default function AuthCallbackPage() {
 
       // Clear the token out of the visible URL before navigating —
       // no reason to leave a session token sitting in browser history.
-      window.location.replace("/portal");
+      window.location.replace(next.startsWith("/") ? next : "/portal");
     }
 
     completeLogin();
-  }, []);
+  }, [next]);
 
   return (
     <main className="min-h-screen flex items-center justify-center px-6">

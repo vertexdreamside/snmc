@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import { Stethoscope } from "lucide-react";
 import { ContactFooter } from "@/lib/components/ContactFooter";
 
@@ -10,6 +11,13 @@ import { ContactFooter } from "@/lib/components/ContactFooter";
 // legacy register, so it's only checked when a person actually has one
 // on file. Send it if you have it; leave it blank otherwise.
 export default function PortalLoginPage() {
+  const searchParams = useSearchParams();
+  // Set by middleware.ts when redirecting an unauthenticated visit to a
+  // protected page (e.g. /council), or by the homepage's Councillor
+  // Portal link directly — carried through the whole magic-link login
+  // flow so signing in actually lands back where the person was headed,
+  // not always on the generic /portal.
+  const next = searchParams.get("next") ?? "/portal";
   const [registrationNumber, setRegistrationNumber] = useState("");
   const [nin, setNin] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +30,7 @@ export default function PortalLoginPage() {
     const res = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ registrationNumber, nin: nin || undefined }),
+      body: JSON.stringify({ registrationNumber, nin: nin || undefined, next }),
     });
     const data = await res.json();
     setLoading(false);

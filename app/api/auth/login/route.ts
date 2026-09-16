@@ -15,8 +15,9 @@ export async function POST(request: Request) {
   // each — the magic link's redirectTo must point back at whichever
   // origin the person is actually using.
   const siteOrigin = new URL(request.url).origin;
+  const next = typeof body.next === "string" ? body.next : "/portal";
 
-  const result = await identifyAndSignIn(parsed.data, siteOrigin, getClientIp(request));
+  const result = await identifyAndSignIn(parsed.data, siteOrigin, getClientIp(request), next);
 
   // Always 200, even on failure — the response body carries a deliberately
   // vague reason so this endpoint can't be used to enumerate valid

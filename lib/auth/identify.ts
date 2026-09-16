@@ -46,7 +46,7 @@ async function logAttempt(
   });
 }
 
-export async function identifyAndSignIn(input: z.infer<typeof loginSchema>, siteOrigin: string, ipAddress: string | null = null): Promise<LoginResult> {
+export async function identifyAndSignIn(input: z.infer<typeof loginSchema>, siteOrigin: string, ipAddress: string | null = null, next: string = "/portal"): Promise<LoginResult> {
   const supabase = createServiceRoleClient();
 
   const { data: person, error } = await supabase
@@ -77,10 +77,16 @@ export async function identifyAndSignIn(input: z.infer<typeof loginSchema>, site
 
   const placeholderEmail = `${person.id}@placeholder.snmc.internal`;
 
+  // The intended destination (e.g. /council for someone reaching this
+  // login via the Councillor Portal link) is threaded through as a query
+  // param on the callback URL itself — Supabase preserves everything
+  // before the URL fragment it appends the session tokens to, so this
+  // survives the whole magic-link round trip intact.
+  const safeNext = next.startsWith("/") ? next : "/portal";
   const { data: link, error: linkError } = await supabase.auth.admin.generateLink({
     type: "magiclink",
     email: placeholderEmail,
-    options: { redirectTo: `${siteOrigin}/auth/callback` },
+    options: { redirectTo: `${siteOrigin}/auth/callback?next=${encodeURIComponent(safeNext)}` },
   });
 
   if (linkError || !link) {
