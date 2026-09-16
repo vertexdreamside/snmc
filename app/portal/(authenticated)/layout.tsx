@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { requirePortalUser } from "@/lib/auth/guards";
+import { LogoutButton } from "@/lib/components/LogoutButton";
 
 // Forces this route (and everything nested under it) to render fresh on
 // every single request, with zero caching at any layer — Vercel's edge,
@@ -37,8 +38,9 @@ export default async function PortalLayout({ children }: { children: React.React
             </Link>
           </nav>
         </div>
-        <span className="font-body text-sm text-white/70">
+        <span className="font-body text-sm text-white/70 flex items-center gap-4">
           {person.first_name} {person.last_name}
+          <LogoutButton redirectTo="/portal/login" className="flex items-center gap-1.5 text-sm text-white/70 hover:text-white" />
         </span>
       </header>
       <div className="p-6">{children}</div>

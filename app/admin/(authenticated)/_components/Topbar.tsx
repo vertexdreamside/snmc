@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { Search, Bell } from "lucide-react";
 import { NAV_GROUPS } from "./nav-items";
+import { LogoutButton } from "@/lib/components/LogoutButton";
 
 export function Topbar() {
   const pathname = usePathname();
@@ -27,6 +28,7 @@ export function Topbar() {
         <button aria-label="Notifications" className="relative text-council-ink/50 hover:text-council-navy">
           <Bell size={20} />
         </button>
+        <LogoutButton redirectTo="/admin/login" className="flex items-center gap-1.5 text-sm text-council-ink/60 hover:text-council-navy" />
       </div>
     </header>
   );

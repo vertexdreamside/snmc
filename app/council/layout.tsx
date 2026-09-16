@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { requireCouncillor } from "@/lib/auth/guards";
+import { LogoutButton } from "@/lib/components/LogoutButton";
 
 // Councillor Portal shell (Section 4a). Default scope only — flagged in
 // the build spec as needing Council confirmation before it grows further.
@@ -20,8 +21,9 @@ export default async function CouncilLayout({ children }: { children: React.Reac
           <Image src="/snmc-emblem.png" alt="" width={28} height={28} aria-hidden="true" />
           <span className="font-display">SNMC — Council Portal</span>
         </div>
-        <span className="font-body text-sm text-white/70">
+        <span className="font-body text-sm text-white/70 flex items-center gap-4">
           {person.first_name} {person.last_name}
+          <LogoutButton redirectTo="/portal/login" className="flex items-center gap-1.5 text-sm text-white/70 hover:text-white" />
         </span>
       </header>
       <div className="p-6">{children}</div>
