@@ -23,7 +23,7 @@ export function LogoutButton({ redirectTo, className }: { redirectTo: string; cl
       className={className ?? "flex items-center gap-1.5 text-sm hover:opacity-80 disabled:opacity-50"}
     >
       <LogOut size={14} aria-hidden="true" />
-      {busy ? "Signing out…" : "Logout"}
+      <span className="hidden sm:inline">{busy ? "Signing out…" : "Logout"}</span>
     </button>
   );
 }

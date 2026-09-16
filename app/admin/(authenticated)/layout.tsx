@@ -1,6 +1,7 @@
 import { requireAdmin } from "@/lib/auth/guards";
 import { Sidebar } from "./_components/Sidebar";
 import { Topbar } from "./_components/Topbar";
+import { MobileSidebarProvider } from "./_components/MobileSidebarContext";
 
 // See the matching comment in app/portal/(authenticated)/layout.tsx —
 // forces fresh rendering with zero caching, added while ruling out a
@@ -12,22 +13,24 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const admin = await requireAdmin();
 
   return (
-    <div className="min-h-screen flex bg-council-cream">
-      <Sidebar
-        fullName={admin.full_name}
-        role={admin.role}
-        fullAccess={admin.full_access}
-        permissions={{
-          reports: admin.can_view_reports,
-          register: admin.can_manage_register,
-          elections: admin.can_manage_elections,
-          users: admin.can_manage_admin_users,
-        }}
-      />
-      <div className="flex-1 flex flex-col min-w-0">
-        <Topbar />
-        <main className="flex-1 p-6 overflow-y-auto">{children}</main>
+    <MobileSidebarProvider>
+      <div className="min-h-screen flex bg-council-cream">
+        <Sidebar
+          fullName={admin.full_name}
+          role={admin.role}
+          fullAccess={admin.full_access}
+          permissions={{
+            reports: admin.can_view_reports,
+            register: admin.can_manage_register,
+            elections: admin.can_manage_elections,
+            users: admin.can_manage_admin_users,
+          }}
+        />
+        <div className="flex-1 flex flex-col min-w-0">
+          <Topbar />
+          <main className="flex-1 p-4 sm:p-6 overflow-y-auto">{children}</main>
+        </div>
       </div>
-    </div>
+    </MobileSidebarProvider>
   );
 }

@@ -68,7 +68,7 @@ export function LicenseExpiryClient({ rows }: { rows: Row[] }) {
       </div>
 
       {selected && (
-        <div className="bg-white rounded-card border border-council-navy/10 overflow-hidden">
+        <div className="bg-white rounded-card border border-council-navy/10 overflow-x-auto">
           <div className="p-4 border-b border-council-navy/10">
             <h2 className="font-display text-sm text-council-navy">{CARD_DEFS.find((c) => c.key === selected)?.label}</h2>
           </div>

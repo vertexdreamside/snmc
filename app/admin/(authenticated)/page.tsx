@@ -202,7 +202,7 @@ export default async function AdminDashboard() {
       {(showRegister || showElections) && (
         <div>
           <h3 className="font-display text-base text-council-navy mb-3">Key Statistics</h3>
-          <div className="bg-white rounded-card border border-council-navy/10 overflow-hidden">
+          <div className="bg-white rounded-card border border-council-navy/10 overflow-x-auto">
             <table className="w-full font-body text-sm">
               <tbody className="divide-y divide-council-navy/10">
                 {showRegister && (

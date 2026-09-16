@@ -48,7 +48,7 @@ export function VoterParticipationTable({ category, voters, votedIds }: { catego
   }
 
   return (
-    <div className="bg-white rounded-card border border-council-navy/10 overflow-hidden">
+    <div className="bg-white rounded-card border border-council-navy/10 overflow-x-auto">
       <div className="p-4 border-b border-council-navy/10 flex items-center justify-between flex-wrap gap-2">
         <h3 className="font-display text-sm text-council-navy">{category} Voter Participation</h3>
         <div className="flex items-center gap-3">

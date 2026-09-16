@@ -128,7 +128,7 @@ export default async function AdminRegisterPage({
         </button>
       </form>
 
-      <div className="bg-white rounded-card border border-council-navy/10 overflow-hidden">
+      <div className="bg-white rounded-card border border-council-navy/10 overflow-x-auto">
         <table className="w-full font-body text-sm">
           <thead className="bg-council-cream text-council-ink/60 text-left">
             <tr>
