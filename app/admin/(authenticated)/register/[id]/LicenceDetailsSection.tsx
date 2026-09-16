@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { FileText, Upload, Check, X, Plus } from "lucide-react";
+import { computeSingleExpiryStatus } from "@/lib/reports";
 
 // Section 7: Nurse Licence, Midwife Licence, and every Special Licence
 // shown as rows in ONE unified table — "Special Licence should appear
@@ -27,14 +28,6 @@ interface SpecialLicense {
 interface BaseLicenseDoc {
   id: string;
   status: "Pending" | "Approved" | "Rejected";
-}
-
-function computeStatus(expiryDate: string | null): string {
-  if (!expiryDate) return "—";
-  const days = Math.floor((new Date(expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-  if (days < 0) return "Expired";
-  if (days <= 90) return "Expiring Soon";
-  return "Active";
 }
 
 function statusColor(status: string): string {
@@ -168,7 +161,7 @@ export function LicenceDetailsSection({
               <td className="px-3 py-2">Nurse Licence</td>
               <td className="px-3 py-2 text-council-ink/60">{nurseLicenseNo}</td>
               <td className="px-3 py-2 text-council-ink/60">{nurseLicenseExpiry ?? "—"}</td>
-              <td className={`px-3 py-2 font-medium ${statusColor(computeStatus(nurseLicenseExpiry))}`}>{computeStatus(nurseLicenseExpiry)}</td>
+              <td className={`px-3 py-2 font-medium ${statusColor(computeSingleExpiryStatus(nurseLicenseExpiry) ?? "—")}`}>{computeSingleExpiryStatus(nurseLicenseExpiry) ?? "—"}</td>
               <td className="px-3 py-2">
                 {nurseDoc ? (
                   <button onClick={() => handleViewBaseDoc(nurseDoc.id)} className="text-council-cyan underline flex items-center gap-1"><FileText size={12} aria-hidden="true" /> View</button>
@@ -184,7 +177,7 @@ export function LicenceDetailsSection({
               <td className="px-3 py-2">Midwife Licence</td>
               <td className="px-3 py-2 text-council-ink/60">{midwifeLicenseNo}</td>
               <td className="px-3 py-2 text-council-ink/60">{midwifeLicenseExpiry ?? "—"}</td>
-              <td className={`px-3 py-2 font-medium ${statusColor(computeStatus(midwifeLicenseExpiry))}`}>{computeStatus(midwifeLicenseExpiry)}</td>
+              <td className={`px-3 py-2 font-medium ${statusColor(computeSingleExpiryStatus(midwifeLicenseExpiry) ?? "—")}`}>{computeSingleExpiryStatus(midwifeLicenseExpiry) ?? "—"}</td>
               <td className="px-3 py-2">
                 {midwifeDoc ? (
                   <button onClick={() => handleViewBaseDoc(midwifeDoc.id)} className="text-council-cyan underline flex items-center gap-1"><FileText size={12} aria-hidden="true" /> View</button>
@@ -203,8 +196,8 @@ export function LicenceDetailsSection({
               </td>
               <td className="px-3 py-2 text-council-ink/60">{l.license_number ?? "—"}</td>
               <td className="px-3 py-2 text-council-ink/60">{l.expiry_date ?? "—"}</td>
-              <td className={`px-3 py-2 font-medium ${statusColor(l.status === "Approved" ? computeStatus(l.expiry_date) : l.status)}`}>
-                {l.status === "Approved" ? computeStatus(l.expiry_date) : l.status}
+              <td className={`px-3 py-2 font-medium ${statusColor(l.status === "Approved" ? (computeSingleExpiryStatus(l.expiry_date) ?? "—") : l.status)}`}>
+                {l.status === "Approved" ? (computeSingleExpiryStatus(l.expiry_date) ?? "—") : l.status}
               </td>
               <td className="px-3 py-2">
                 <SpecialDocCell licenseId={l.id} hasDocument={!!l.document_path} onUpload={handleUploadSpecialDoc} onView={handleViewSpecialDoc} busy={busy === l.id} />

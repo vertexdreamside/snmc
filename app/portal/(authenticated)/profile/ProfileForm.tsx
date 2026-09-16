@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { Person } from "@/lib/types/database";
 import { CheckCircle2, ArrowLeft, ArrowRight, Plus } from "lucide-react";
+import { computeSingleExpiryStatus } from "@/lib/reports";
 
 interface SpecialLicense {
   id: string;
@@ -14,14 +15,6 @@ interface SpecialLicense {
   status: "Pending" | "Approved" | "Rejected";
   source: "self" | "admin";
   document_path: string | null;
-}
-
-function specialLicenseExpiryStatus(expiryDate: string | null): "Active" | "Expiring Soon" | "Expired" | null {
-  if (!expiryDate) return null;
-  const days = Math.floor((new Date(expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-  if (days < 0) return "Expired";
-  if (days <= 90) return "Expiring Soon";
-  return "Active";
 }
 
 const STEPS = ["Personal", "Contact", "Professional", "Licence", "Special Licences", "Review"] as const;
@@ -313,7 +306,7 @@ export function ProfileForm({ person, specialLicenses, hasNinOnFile }: { person:
             ) : (
               <ul className="space-y-2">
                 {specialLicenses.map((l) => {
-                  const expiryStatus = specialLicenseExpiryStatus(l.expiry_date);
+                  const expiryStatus = computeSingleExpiryStatus(l.expiry_date);
                   return (
                     <li key={l.id} className="bg-council-cream rounded-card px-3 py-2">
                       <p className="font-body text-sm font-medium text-council-navy">

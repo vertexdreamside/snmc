@@ -57,6 +57,22 @@ export function computeAgeGroup(dateOfBirth: string | null): AgeGroupLabel {
 // hold one, or both).
 const LICENSE_WARNING_WINDOW_DAYS = 90;
 
+// Single-date version of the same Active/Expiring Soon/Expired logic
+// above — used wherever one specific licence's own expiry is being
+// shown (a special licence, a single row in the unified Licence Details
+// table), as opposed to computeLicenseStatus's combined nurse+midwife
+// register-level view. Previously duplicated verbatim, with the same
+// 90-day threshold hardcoded separately, in both LicenceDetailsSection.tsx
+// and ProfileForm.tsx — consolidated here so the threshold only ever
+// needs changing in one place.
+export function computeSingleExpiryStatus(expiryDate: string | null): "Active" | "Expiring Soon" | "Expired" | null {
+  if (!expiryDate) return null;
+  const days = Math.floor((new Date(expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  if (days < 0) return "Expired";
+  if (days <= LICENSE_WARNING_WINDOW_DAYS) return "Expiring Soon";
+  return "Active";
+}
+
 export function computeLicenseStatus(nurseExpiry: string | null, midwifeExpiry: string | null): LicenseStatusLabel {
   const dates = [nurseExpiry, midwifeExpiry].filter((d): d is string => !!d).map((d) => new Date(d));
   if (dates.length === 0) return "Not on File";
