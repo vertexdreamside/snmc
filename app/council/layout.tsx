@@ -19,7 +19,10 @@ export default async function CouncilLayout({ children }: { children: React.Reac
       <header className="bg-council-navyDeep text-white px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Image src="/snmc-emblem.png" alt="" width={28} height={28} aria-hidden="true" />
-          <span className="font-display">SNMC — Council Portal</span>
+          <div className="leading-tight">
+            <span className="font-display block">SNMC — Council Portal</span>
+            <span className="font-body text-[10px] text-white/50 uppercase tracking-wide">Excellence in Practice &middot; Safety in Care</span>
+          </div>
         </div>
         <span className="font-body text-sm text-white/70 flex items-center gap-4">
           {person.first_name} {person.last_name}

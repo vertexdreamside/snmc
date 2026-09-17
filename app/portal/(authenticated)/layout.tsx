@@ -24,7 +24,10 @@ export default async function PortalLayout({ children }: { children: React.React
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-3">
             <Image src="/snmc-emblem.png" alt="" width={28} height={28} aria-hidden="true" />
-            <span className="font-display">SNMC — Nurse / Midwife Portal</span>
+            <div className="leading-tight">
+              <span className="font-display block">SNMC — Nurse / Midwife Portal</span>
+              <span className="font-body text-[10px] text-white/50 uppercase tracking-wide">Excellence in Practice &middot; Safety in Care</span>
+            </div>
           </div>
           <nav className="hidden sm:flex gap-4 font-body text-sm text-white/70">
             <Link href="/portal" className="hover:text-white">

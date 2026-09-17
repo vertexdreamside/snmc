@@ -51,6 +51,7 @@ export function Sidebar({ fullName, role, fullAccess, permissions }: SidebarProp
             <div className="min-w-0 flex-1">
               <p className="font-body text-sm font-medium leading-tight truncate">SNMC</p>
               <p className="font-body text-[11px] text-white/50 leading-tight truncate">Staff Portal</p>
+              <p className="font-body text-[9px] text-white/35 leading-tight truncate uppercase tracking-wide">Excellence in Practice &middot; Safety in Care</p>
             </div>
           )}
           <button onClick={() => setOpen(false)} aria-label="Close menu" className="md:hidden text-white/60 hover:text-white shrink-0">
