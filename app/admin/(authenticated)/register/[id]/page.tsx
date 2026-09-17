@@ -47,6 +47,12 @@ export default async function PersonDetailPage({ params }: { params: { id: strin
     return <EmptyState message="Record not found." backHref="/admin/register" backLabel="← Back to register" />;
   }
 
+  const { data: emailRow } = await supabase
+    .from("people_emails")
+    .select("email")
+    .eq("person_id", params.id)
+    .maybeSingle();
+
   const { data: specialLicenses } = await supabase
     .from("special_licenses")
     .select("id, license_name, license_number, issued_date, expiry_date, status, source, document_path")
@@ -107,6 +113,7 @@ export default async function PersonDetailPage({ params }: { params: { id: strin
         <dl className="grid grid-cols-2 gap-y-3 font-body text-sm">
           <Field label="Sex" value={person.sex} />
           <Field label="Nationality" value={(person as any).nationality} />
+          <Field label="Email Address" value={emailRow?.email} />
           {canSeeNin && <Field label="N.I.N" value={(person as any).nin} />}
           <Field label="Date of Birth" value={person.date_of_birth} />
           <Field label="Address" value={[person.address_line1, person.address_line2, person.address_line3].filter(Boolean).join(", ")} />
