@@ -118,12 +118,13 @@ function UserRow({ user, isSelf, onChanged }: { user: AdminUserRow; isSelf: bool
   }
 
   async function handleResetPassword() {
+    if (!confirm(`Reset the password for ${user.full_name ?? "this user"}? A new temporary password will be generated — you'll need to share it with them directly.`)) return;
     setBusy("reset");
     setResetMessage(null);
     const res = await fetch(`/api/admin/users/${user.id}/reset-password`, { method: "POST" });
     const data = await res.json();
     setBusy(null);
-    setResetMessage(data.ok ? `Reset email sent to ${data.email}.` : data.reason ?? "Could not send reset email.");
+    setResetMessage(data.ok ? `New temporary password: ${data.tempPassword} — share this with them directly. It won't be shown again.` : data.reason ?? "Could not reset the password.");
   }
 
   return (
@@ -207,15 +208,25 @@ function AddUserForm({ onDone }: { onDone: () => void }) {
   });
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   function togglePermission(key: keyof typeof permissions) {
     setPermissions((p) => ({ ...p, [key]: !p[key] }));
+  }
+
+  function copyLink() {
+    if (!inviteLink) return;
+    navigator.clipboard.writeText(inviteLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setMessage(null);
+    setInviteLink(null);
     const res = await fetch("/api/admin/users", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -224,7 +235,8 @@ function AddUserForm({ onDone }: { onDone: () => void }) {
     const data = await res.json();
     setBusy(false);
     if (data.ok) {
-      setMessage(`${email} has been sent a secure link to set up their account.`);
+      setMessage(`Account created for ${email}. Copy the link below and share it with them to set up their account — no email was sent automatically.`);
+      setInviteLink(data.inviteLink ?? null);
       setEmail("");
       setFullName("");
       setTitle("");
@@ -311,6 +323,14 @@ function AddUserForm({ onDone }: { onDone: () => void }) {
         {busy ? "Adding…" : "+ Add New User"}
       </button>
       {message && <p className="font-body text-sm text-council-ink/60">{message}</p>}
+      {inviteLink && (
+        <div className="flex items-center gap-2 bg-council-cream rounded-card p-2">
+          <input readOnly value={inviteLink} className="flex-1 bg-transparent font-mono text-xs text-council-ink/70 outline-none" onFocus={(e) => e.target.select()} />
+          <button type="button" onClick={copyLink} className="text-xs font-medium text-council-cyan shrink-0">
+            {copied ? "Copied!" : "Copy"}
+          </button>
+        </div>
+      )}
     </form>
   );
 }

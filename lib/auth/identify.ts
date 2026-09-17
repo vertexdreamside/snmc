@@ -34,7 +34,7 @@ export interface LoginResult {
 
 async function logAttempt(
   supabase: ReturnType<typeof createServiceRoleClient>,
-  params: { outcome: "success" | "failure"; registrationNumber: string; personId: string | null; failureReason?: string; ipAddress: string | null }
+  params: { outcome: "success" | "failure"; registrationNumber: string; personId: string | null; failureReason?: string; ipAddress: string | null; device?: { deviceType: string; browser: string; os: string } }
 ) {
   await supabase.from("audit_log").insert({
     actor_id: params.personId,
@@ -42,11 +42,14 @@ async function logAttempt(
     target_table: "people",
     target_id: params.personId,
     ip_address: params.ipAddress,
+    device_type: params.device?.deviceType,
+    browser: params.device?.browser,
+    operating_system: params.device?.os,
     details: { attempted_registration_number: params.registrationNumber, failure_reason: params.failureReason ?? null },
   });
 }
 
-export async function identifyAndSignIn(input: z.infer<typeof loginSchema>, siteOrigin: string, ipAddress: string | null = null, next: string = "/portal"): Promise<LoginResult> {
+export async function identifyAndSignIn(input: z.infer<typeof loginSchema>, siteOrigin: string, ipAddress: string | null = null, next: string = "/portal", device?: { deviceType: string; browser: string; os: string }): Promise<LoginResult> {
   const supabase = createServiceRoleClient();
 
   const { data: person, error } = await supabase
@@ -58,20 +61,20 @@ export async function identifyAndSignIn(input: z.infer<typeof loginSchema>, site
   const genericFailure: LoginResult = { ok: false, reason: "We couldn't verify those details." };
 
   if (error || !person) {
-    await logAttempt(supabase, { outcome: "failure", registrationNumber: input.registrationNumber, personId: null, failureReason: "no matching registration number", ipAddress });
+    await logAttempt(supabase, { outcome: "failure", registrationNumber: input.registrationNumber, personId: null, failureReason: "no matching registration number", ipAddress, device });
     return genericFailure;
   }
 
   const hasNinOnFile = !!person.nin && person.nin.trim() !== "";
   if (hasNinOnFile) {
     if (!input.nin || person.nin !== input.nin) {
-      await logAttempt(supabase, { outcome: "failure", registrationNumber: input.registrationNumber, personId: person.id, failureReason: "NIN mismatch", ipAddress });
+      await logAttempt(supabase, { outcome: "failure", registrationNumber: input.registrationNumber, personId: person.id, failureReason: "NIN mismatch", ipAddress, device });
       return genericFailure;
     }
   }
 
   if (person.is_deceased || INELIGIBLE_STATUSES.includes(person.registration_status as any)) {
-    await logAttempt(supabase, { outcome: "failure", registrationNumber: input.registrationNumber, personId: person.id, failureReason: "ineligible status", ipAddress });
+    await logAttempt(supabase, { outcome: "failure", registrationNumber: input.registrationNumber, personId: person.id, failureReason: "ineligible status", ipAddress, device });
     return genericFailure;
   }
 
@@ -90,7 +93,7 @@ export async function identifyAndSignIn(input: z.infer<typeof loginSchema>, site
   });
 
   if (linkError || !link) {
-    await logAttempt(supabase, { outcome: "failure", registrationNumber: input.registrationNumber, personId: person.id, failureReason: "could not generate session link", ipAddress });
+    await logAttempt(supabase, { outcome: "failure", registrationNumber: input.registrationNumber, personId: person.id, failureReason: "could not generate session link", ipAddress, device });
     return { ok: false, reason: "Could not start a session. Please try again." };
   }
 
@@ -99,7 +102,7 @@ export async function identifyAndSignIn(input: z.infer<typeof loginSchema>, site
     await supabase.from("people").update({ auth_user_id: actualAuthUserId }).eq("id", person.id);
   }
 
-  await logAttempt(supabase, { outcome: "success", registrationNumber: input.registrationNumber, personId: person.id, ipAddress });
+  await logAttempt(supabase, { outcome: "success", registrationNumber: input.registrationNumber, personId: person.id, ipAddress, device });
 
   return { ok: true, redirectTo: link.properties.action_link };
 }

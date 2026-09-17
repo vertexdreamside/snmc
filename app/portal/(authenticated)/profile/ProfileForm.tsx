@@ -242,8 +242,10 @@ export function ProfileForm({ person, specialLicenses, hasNinOnFile }: { person:
             </p>
             <ReadOnlyField label="Nurse Licence No." value={person.nurse_license_no} />
             <ReadOnlyField label="Nurse Licence Expiry" value={person.nurse_license_expiry} />
+            {person.nurse_reg_no && <ViewLicenseDocumentButton licenseType="nurse" label="Nurse Licence Document" />}
             <ReadOnlyField label="Midwife Licence No." value={person.midwife_license_no} />
             <ReadOnlyField label="Midwife Licence Expiry" value={person.midwife_license_expiry} />
+            {person.midwife_reg_no && <ViewLicenseDocumentButton licenseType="midwife" label="Midwife Licence Document" />}
           </>
         )}
 
@@ -501,5 +503,29 @@ function SpecialLicenseDocRow({ licenseId, hasDocument }: { licenseId: string; h
         }}
       />
     </label>
+  );
+}
+
+function ViewLicenseDocumentButton({ licenseType, label }: { licenseType: "nurse" | "midwife"; label: string }) {
+  const [message, setMessage] = useState<string | null>(null);
+
+  async function handleView() {
+    setMessage(null);
+    const res = await fetch(`/api/portal/license-document/${licenseType}/view-url`);
+    const data = await res.json();
+    if (data.ok) {
+      window.open(data.url, "_blank", "noopener,noreferrer");
+    } else {
+      setMessage(data.reason ?? "No document available.");
+    }
+  }
+
+  return (
+    <div className="mb-2">
+      <button type="button" onClick={handleView} className="text-xs text-council-cyan underline">
+        View / Download {label}
+      </button>
+      {message && <p className="font-body text-xs text-council-ink/40 mt-0.5">{message}</p>}
+    </div>
   );
 }

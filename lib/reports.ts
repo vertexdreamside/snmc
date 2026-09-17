@@ -83,3 +83,22 @@ export function computeLicenseStatus(nurseExpiry: string | null, midwifeExpiry: 
   if (soonest <= warningDate) return "Expiring Soon";
   return "Valid";
 }
+
+// Seychelles Time (UTC+4, no daylight saving) — Section 5/7 explicitly
+// require timestamps shown to admins to use this timezone specifically,
+// not the server's or viewer's own local time. Uses the IANA "Indian/
+// Mahe" zone via Intl rather than hardcoding a +4 offset, since that's
+// the timezone-database-driven way to get this right even if the
+// underlying rules ever changed.
+export function formatSeychellesTime(dateStr: string | null): string {
+  if (!dateStr) return "—";
+  return new Date(dateStr).toLocaleString("en-GB", {
+    timeZone: "Indian/Mahe",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }) + " SCT";
+}

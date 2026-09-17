@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ScrollText } from "lucide-react";
 import { canManageRegister } from "@/lib/auth/permissions";
 import { redactNinFromDetails } from "@/lib/licenses";
+import { formatSeychellesTime } from "@/lib/reports";
 
 // The audit_log table has been written to since migration 0001, but
 // until now there was no page anywhere to actually view it, despite
@@ -79,7 +80,7 @@ export default async function AuditLogPage({ searchParams }: { searchParams: { p
           <tbody className="divide-y divide-council-navy/10">
             {entries?.map((e) => (
               <tr key={e.id}>
-                <td className="px-4 py-3 text-council-ink/60 whitespace-nowrap">{new Date(e.created_at).toLocaleString()}</td>
+                <td className="px-4 py-3 text-council-ink/60 whitespace-nowrap">{formatSeychellesTime(e.created_at)}</td>
                 <td className="px-4 py-3">{e.actor_id ? actorNames.get(e.actor_id) ?? "—" : "—"}</td>
                 <td className="px-4 py-3">
                   <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-council-navy/10 text-council-ink/70">{e.action}</span>

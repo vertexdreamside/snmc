@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { formatSeychellesTime } from "@/lib/reports";
 
 function timeAgo(dateStr: string): string {
   const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24));
@@ -26,7 +27,11 @@ export function AdminActivityStatus({ adminId }: { adminId: string }) {
       {data.status === "Active" ? (
         <>
           <span className="text-status-active font-medium">Active</span>
-          <p className="text-council-ink/50">{data.lastLoginAt ? `Last seen ${timeAgo(data.lastLoginAt)}` : ""}</p>
+          {data.lastLoginAt && (
+            <p className="text-council-ink/50" title={formatSeychellesTime(data.lastLoginAt)}>
+              Last seen {timeAgo(data.lastLoginAt)} &middot; {formatSeychellesTime(data.lastLoginAt)}
+            </p>
+          )}
         </>
       ) : (
         <span className="text-status-pending font-medium">Invited — not yet signed in</span>

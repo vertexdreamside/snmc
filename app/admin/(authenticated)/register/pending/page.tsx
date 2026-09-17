@@ -5,7 +5,7 @@ import Link from "next/link";
 
 const NEW_WINDOW_DAYS = 7;
 
-export default async function PendingApprovalPage({ searchParams }: { searchParams: { filter?: string } }) {
+export default async function PendingApprovalPage({ searchParams }: { searchParams: { filter?: string; q?: string } }) {
   await requireAdmin(["register"]);
   const supabase = createClient();
 
@@ -18,12 +18,21 @@ export default async function PendingApprovalPage({ searchParams }: { searchPara
 
   const cutoff = Date.now() - NEW_WINDOW_DAYS * 24 * 60 * 60 * 1000;
   const filter = searchParams.filter === "new" || searchParams.filter === "old" ? searchParams.filter : "all";
+  const q = (searchParams.q ?? "").trim().toLowerCase();
 
-  const pending = (allPending ?? []).filter((p) => {
+  let pending = (allPending ?? []).filter((p) => {
     if (filter === "all") return true;
     const isNew = new Date(p.updated_at).getTime() >= cutoff;
     return filter === "new" ? isNew : !isNew;
   });
+
+  if (q) {
+    pending = pending.filter((p) =>
+      `${p.first_name} ${p.last_name}`.toLowerCase().includes(q) ||
+      (p.nurse_reg_no ?? "").toLowerCase().includes(q) ||
+      (p.midwife_reg_no ?? "").toLowerCase().includes(q)
+    );
+  }
 
   const newCount = (allPending ?? []).filter((p) => new Date(p.updated_at).getTime() >= cutoff).length;
   const oldCount = (allPending ?? []).length - newCount;
@@ -46,10 +55,22 @@ export default async function PendingApprovalPage({ searchParams }: { searchPara
         <p className="font-body text-sm text-council-ink/60 mt-1">Self-service changes awaiting review — the specific fields each person changed are shown below their name.</p>
       </div>
 
+      <form className="flex flex-wrap gap-2 items-center">
+        <input
+          type="text"
+          name="q"
+          defaultValue={q}
+          placeholder="Search by name or registration number…"
+          className="flex-1 min-w-[200px] border border-council-navy/20 rounded-card px-3 py-1.5 font-body text-sm"
+        />
+        {filter !== "all" && <input type="hidden" name="filter" value={filter} />}
+        <button type="submit" className="text-sm font-body bg-council-navy text-white rounded-card px-3 py-1.5">Search</button>
+      </form>
+
       <div className="flex gap-2">
-        <FilterTab href="/admin/register/pending" active={filter === "all"} label={`All (${(allPending ?? []).length})`} />
-        <FilterTab href="/admin/register/pending?filter=new" active={filter === "new"} label={`New — last ${NEW_WINDOW_DAYS} days (${newCount})`} />
-        <FilterTab href="/admin/register/pending?filter=old" active={filter === "old"} label={`Older (${oldCount})`} />
+        <FilterTab href={`/admin/register/pending${q ? `?q=${encodeURIComponent(q)}` : ""}`} active={filter === "all"} label={`All (${(allPending ?? []).length})`} />
+        <FilterTab href={`/admin/register/pending?filter=new${q ? `&q=${encodeURIComponent(q)}` : ""}`} active={filter === "new"} label={`New — last ${NEW_WINDOW_DAYS} days (${newCount})`} />
+        <FilterTab href={`/admin/register/pending?filter=old${q ? `&q=${encodeURIComponent(q)}` : ""}`} active={filter === "old"} label={`Older (${oldCount})`} />
       </div>
 
       <div className="space-y-3">

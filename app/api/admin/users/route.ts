@@ -1,10 +1,19 @@
-// Creates a new Admin User or Councillor account via Supabase's secure
-// invite-link mechanism — the person who creates this account never
-// sees or sets a password; only the recipient does, via the emailed
-// link. This file previously had the WRONG content — a duplicate of the
-// reset-password route (which needs a dynamic [id] this path doesn't
-// have) — meaning "Add New User" was silently broken on the live site,
-// even though the form correctly posts here.
+// Creates a new Admin User or Councillor account. Section 4's exact bug
+// report: "Email rate limit exceeded" was blocking account creation
+// entirely, because inviteUserByEmail() couples two separate things
+// into one call — creating the auth user, AND having Supabase's own
+// (rate-limited) email service send the invite — with no way to
+// succeed at one without the other. If the email leg failed for any
+// reason, this returned early and never even created the admin_users
+// row.
+//
+// Fixed by switching to generateLink(), which creates the auth user and
+// returns a real invite link WITHOUT ever sending an email — there is
+// no email step here at all to rate-limit. The link is returned to the
+// admin doing the creating, so they can copy and share it however they
+// want (a message, in person, whatever the Council actually uses) — a
+// more reliable design than depending on Supabase's default email
+// sending for something this important, not just a workaround.
 
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -34,16 +43,21 @@ export async function POST(request: Request) {
   const data = parsed.data;
 
   const supabase = createServiceRoleClient();
+  const siteOrigin = new URL(request.url).origin;
 
-  const { data: invited, error: inviteError } = await supabase.auth.admin.inviteUserByEmail(data.email);
-  if (inviteError || !invited?.user) {
-    return NextResponse.json({ ok: false, reason: inviteError?.message ?? "Could not send the invitation." }, { status: 500 });
+  const { data: linked, error: linkError } = await supabase.auth.admin.generateLink({
+    type: "invite",
+    email: data.email,
+    options: { redirectTo: `${siteOrigin}/auth/callback?next=${encodeURIComponent("/admin")}` },
+  });
+  if (linkError || !linked?.user) {
+    return NextResponse.json({ ok: false, reason: linkError?.message ?? "Could not create the account." }, { status: 500 });
   }
 
   const { data: created, error } = await supabase
     .from("admin_users")
     .insert({
-      auth_user_id: invited.user.id,
+      auth_user_id: linked.user.id,
       full_name: data.fullName,
       role: data.title || null,
       phone: data.phone || null,
@@ -58,7 +72,7 @@ export async function POST(request: Request) {
     .single();
 
   if (error) {
-    return NextResponse.json({ ok: false, reason: "Invitation sent, but the account record could not be created." }, { status: 500 });
+    return NextResponse.json({ ok: false, reason: "Could not create the account record." }, { status: 500 });
   }
 
   await supabase.from("audit_log").insert({
@@ -69,5 +83,5 @@ export async function POST(request: Request) {
     details: { email: data.email, user_type: data.userType },
   });
 
-  return NextResponse.json({ ok: true, id: created.id });
+  return NextResponse.json({ ok: true, id: created.id, inviteLink: linked.properties?.action_link ?? null });
 }
