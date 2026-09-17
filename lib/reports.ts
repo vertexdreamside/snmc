@@ -51,6 +51,34 @@ export function computeAgeGroup(dateOfBirth: string | null): AgeGroupLabel {
   return "60 and over";
 }
 
+export interface AgeBracket {
+  label: string;
+  min_age: number;
+  max_age: number | null;
+  sort_order: number;
+}
+
+// Section 13's configurable-ranges version, used by Reports specifically
+// — computeAgeGroup above stays exactly as it was (still used by the
+// dashboard's own age chart, which wasn't part of this request) rather
+// than changing its return type and risking that caller. Brackets are
+// fetched once per report request and passed in here, not queried per
+// row.
+export function computeAgeGroupDynamic(dateOfBirth: string | null, brackets: AgeBracket[]): string {
+  if (!dateOfBirth) return "Unknown";
+  const dob = new Date(dateOfBirth);
+  if (isNaN(dob.getTime())) return "Unknown";
+  const ageMs = Date.now() - dob.getTime();
+  const age = Math.floor(ageMs / (365.25 * 24 * 60 * 60 * 1000));
+  const sorted = [...brackets].sort((a, b) => a.sort_order - b.sort_order);
+  for (const bracket of sorted) {
+    if (age >= bracket.min_age && (bracket.max_age === null || age <= bracket.max_age)) {
+      return bracket.label;
+    }
+  }
+  return "Unknown";
+}
+
 // Mirrors the bucketing already used on the License Expiry admin page
 // (90-day warning window) — reused here as a reportable field, checking
 // whichever of the two licence-expiry dates is present (a person may only
