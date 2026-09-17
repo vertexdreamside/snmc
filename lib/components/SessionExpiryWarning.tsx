@@ -4,8 +4,6 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { AlertTriangle } from "lucide-react";
 
-const WARNING_BEFORE_EXPIRY_SECONDS = 120; // Section 8: "reasonable period" — warn 2 minutes before the token actually expires.
-
 // Sections 8-9: warn before an inactive session expires, offer "Stay
 // Logged In" (refreshes the session in place — nothing is lost, no
 // navigation happens) or "Log Out". If ignored, the session is allowed
@@ -13,11 +11,19 @@ const WARNING_BEFORE_EXPIRY_SECONDS = 120; // Section 8: "reasonable period" —
 // the reason is recorded as "Session Expired" before redirecting —
 // distinct from a deliberate Logout. This is genuinely new
 // infrastructure: nothing like it existed anywhere in the app before.
+//
+// The warning lead-time is admin-configurable (see /admin/system/session,
+// stored in session_settings) — but that's the ONLY thing about session
+// duration this app can actually control. The real token/session expiry
+// itself is a Supabase project setting (Auth > Sessions > JWT expiry in
+// the Supabase dashboard), which this application has no ability to
+// override at runtime.
 export function SessionExpiryWarning({ loginPath }: { loginPath: string }) {
   const [showWarning, setShowWarning] = useState(false);
-  const [secondsLeft, setSecondsLeft] = useState(WARNING_BEFORE_EXPIRY_SECONDS);
+  const [secondsLeft, setSecondsLeft] = useState(120);
   const [refreshing, setRefreshing] = useState(false);
   const expiresAtRef = useRef<number | null>(null);
+  const warnBeforeSecondsRef = useRef(120);
   const warnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -27,7 +33,7 @@ export function SessionExpiryWarning({ loginPath }: { loginPath: string }) {
     if (!session?.expires_at) return;
 
     expiresAtRef.current = session.expires_at * 1000;
-    const msUntilWarning = expiresAtRef.current - Date.now() - WARNING_BEFORE_EXPIRY_SECONDS * 1000;
+    const msUntilWarning = expiresAtRef.current - Date.now() - warnBeforeSecondsRef.current * 1000;
 
     if (warnTimerRef.current) clearTimeout(warnTimerRef.current);
     if (msUntilWarning <= 0) {
@@ -38,7 +44,13 @@ export function SessionExpiryWarning({ loginPath }: { loginPath: string }) {
   }, []);
 
   useEffect(() => {
-    scheduleFromSession();
+    fetch("/api/session-settings")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.ok) warnBeforeSecondsRef.current = d.warningSeconds;
+      })
+      .catch(() => {})
+      .finally(() => scheduleFromSession());
     return () => {
       if (warnTimerRef.current) clearTimeout(warnTimerRef.current);
       if (countdownRef.current) clearInterval(countdownRef.current);
