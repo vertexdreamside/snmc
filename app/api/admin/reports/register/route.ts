@@ -16,10 +16,14 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/guards";
 import { createClient } from "@/lib/supabase/server";
-import { ALLOWED_REGISTER_FIELDS, computeAgeGroup, computeLicenseStatus } from "@/lib/reports";
+import { ALLOWED_REGISTER_FIELDS, computeAgeGroupDynamic, computeLicenseStatus, type AgeBracket } from "@/lib/reports";
 
 export async function GET(request: Request) {
-  await requireAdmin(["reports"]);
+  const admin = await requireAdmin(["reports"]);
+  const supabase = createClient();
+
+  const { data: ageBrackets } = await supabase.from("age_brackets").select("label, min_age, max_age, sort_order").order("sort_order");
+  const brackets: AgeBracket[] = ageBrackets ?? [];
 
   const { searchParams } = new URL(request.url);
   const requestedFields = (searchParams.get("fields") ?? "").split(",").filter(Boolean);
@@ -40,6 +44,11 @@ export async function GET(request: Request) {
   const serviceCategoryFilter = searchParams.get("serviceCategoryFilter")?.split(",").filter(Boolean) ?? [];
   const profileStatusFilter = searchParams.get("profileStatusFilter")?.split(",").filter(Boolean) ?? [];
   const licenseStatusFilter = searchParams.get("licenseStatusFilter")?.split(",").filter(Boolean) ?? [];
+  // Section 13: "Has Special Licence" as its own separate filter,
+  // distinct from Professional Category — previously Special Licence
+  // wasn't filterable in Reports at all; it's real data in its own
+  // table (special_licenses), not a professional-category value.
+  const hasSpecialLicence = searchParams.get("hasSpecialLicence") === "true";
 
   const needsAgeGroup = fields.includes("age_group") || ageGroupFilter.length > 0;
   const needsLicenseStatus = fields.includes("license_status") || licenseStatusFilter.length > 0;
@@ -49,10 +58,10 @@ export async function GET(request: Request) {
       ...realColumns,
       ...(needsAgeGroup ? ["date_of_birth"] : []),
       ...(needsLicenseStatus ? ["nurse_license_expiry", "midwife_license_expiry"] : []),
+      ...(hasSpecialLicence ? ["id"] : []),
     ])
   );
 
-  const supabase = createClient();
   let query = supabase.from("people").select(selectColumns.join(",")).order("last_name").limit(2000);
   if (status) query = query.eq("registration_status", status);
   if (category) query = query.eq("professional_category", category);
@@ -73,7 +82,7 @@ export async function GET(request: Request) {
   // Synthetic-field filtering happens against the raw underlying
   // column(s), before those get stripped out of the final output below.
   if (needsAgeGroup && ageGroupFilter.length > 0) {
-    rows = rows.filter((row) => ageGroupFilter.includes(computeAgeGroup(row.date_of_birth as string | null)));
+    rows = rows.filter((row) => ageGroupFilter.includes(computeAgeGroupDynamic(row.date_of_birth as string | null, brackets)));
   }
   if (needsLicenseStatus && licenseStatusFilter.length > 0) {
     rows = rows.filter((row) =>
@@ -83,9 +92,24 @@ export async function GET(request: Request) {
     );
   }
 
+  if (hasSpecialLicence) {
+    const personIds = rows.map((row) => row.id as string);
+    const { data: specialLicenceHolders } = personIds.length
+      ? await supabase.from("special_licenses").select("person_id").eq("status", "Approved").in("person_id", personIds)
+      : { data: [] };
+    const holderIds = new Set((specialLicenceHolders ?? []).map((s) => s.person_id));
+    rows = rows.filter((row) => holderIds.has(row.id));
+    if (!fields.includes("id" as any)) {
+      rows = rows.map((row) => {
+        const { id, ...rest } = row;
+        return rest;
+      });
+    }
+  }
+
   if (needsAgeGroup) {
     rows = rows.map((row) => {
-      const ageGroup = computeAgeGroup(row.date_of_birth as string | null);
+      const ageGroup = computeAgeGroupDynamic(row.date_of_birth as string | null, brackets);
       const { date_of_birth, ...rest } = row;
       return fields.includes("age_group") ? { ...rest, age_group: ageGroup } : rest;
     });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { ALLOWED_REGISTER_FIELDS, SELECTABLE_AGE_GROUPS, LICENSE_STATUSES } from "@/lib/reports";
 
@@ -10,7 +10,7 @@ const FIELD_LABELS: Record<string, string> = {
   sex: "Sex",
   nurse_reg_no: "Nurse Reg. No.",
   midwife_reg_no: "Midwife Reg. No.",
-  professional_category: "Category",
+  professional_category: "Professional Category",
   registration_status: "Registration Status",
   profile_status: "Profile Status",
   employment_sector: "Employment Sector",
@@ -48,11 +48,26 @@ export function ReportBuilder() {
   const [subFilters, setSubFilters] = useState<Record<string, Set<string>>>({});
   const [status, setStatus] = useState("");
   const [category, setCategory] = useState("");
+  const [hasSpecialLicence, setHasSpecialLicence] = useState(false);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [rows, setRows] = useState<Record<string, string>[] | null>(null);
   const [fields, setFields] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  // Section 13: age ranges are now admin-configurable (see /admin/reports/age-ranges)
+  // rather than the fixed brackets this fell back to before that existed.
+  const [ageGroupOptions, setAgeGroupOptions] = useState<string[]>(SELECTABLE_AGE_GROUPS);
+
+  useEffect(() => {
+    fetch("/api/admin/age-brackets")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.ok && d.brackets?.length > 0) {
+          setAgeGroupOptions(d.brackets.map((b: { label: string }) => b.label));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   function toggle(key: string) {
     setSelected((prev) => {
@@ -85,6 +100,7 @@ export function ReportBuilder() {
     const params = new URLSearchParams({ fields: Array.from(selected).join(",") });
     if (status) params.set("status", status);
     if (category) params.set("category", category);
+    if (hasSpecialLicence) params.set("hasSpecialLicence", "true");
     if (dateFrom) params.set("dateFrom", dateFrom);
     if (dateTo) params.set("dateTo", dateTo);
     for (const [fieldKey, def] of Object.entries(SUB_FILTERS)) {
@@ -154,7 +170,7 @@ export function ReportBuilder() {
               </label>
               {selected.has(f.key) && SUB_FILTERS[f.key] && (
                 <div className="ml-6 mt-1 mb-2 flex flex-wrap gap-2">
-                  {SUB_FILTERS[f.key]!.options.map((opt) => (
+                  {(f.key === "age_group" ? ageGroupOptions : SUB_FILTERS[f.key]!.options).map((opt) => (
                     <label key={opt} className="flex items-center gap-1 text-xs bg-council-cream rounded-card px-2 py-1 text-council-ink/70">
                       <input
                         type="checkbox"
@@ -184,6 +200,10 @@ export function ReportBuilder() {
             <option value="Midwife">Midwife</option>
             <option value="Both">Both</option>
           </select>
+          <label className="flex items-center gap-1.5 font-body text-sm text-council-ink/70 bg-council-cream rounded-card px-3 py-2">
+            <input type="checkbox" checked={hasSpecialLicence} onChange={(e) => setHasSpecialLicence(e.target.checked)} className="accent-council-navy" />
+            Has Special Licence
+          </label>
           <label className="flex items-center gap-1 font-body text-xs text-council-ink/60">
             Registered from
             <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="border border-council-navy/20 rounded-card px-2 py-1.5 text-sm" />
