@@ -36,8 +36,17 @@ const DATASETS = [
   "audit_log",
 ] as const;
 
-const REGISTER_COLUMNS =
-  "first_name, last_name, sex, nurse_reg_no, midwife_reg_no, professional_category, registration_status, profile_status, employment_sector, service_category, place_of_work, employer, training_institute, nurse_license_expiry, midwife_license_expiry, category_confirmed, is_deceased";
+// Section 14: "NIN must only be exported by authorised roles" — role-
+// gated, not blanket-excluded. Reuses canManageRegister since that's
+// the exact same permission that already gates NIN visibility
+// everywhere else in this app (the register profile page, the audit
+// diff redaction) — keeping NIN's access model in one consistent place
+// rather than a separate, export-specific permission flag.
+function registerColumns(canSeeNin: boolean): string {
+  const base =
+    "first_name, last_name, sex, nurse_reg_no, midwife_reg_no, professional_category, registration_status, profile_status, employment_sector, service_category, place_of_work, employer, training_institute, nurse_license_expiry, midwife_license_expiry, category_confirmed, is_deceased";
+  return canSeeNin ? `${base}, nin` : base;
+}
 
 export async function GET(request: Request) {
   const actor = await requireAdmin(["reports"]);
@@ -54,19 +63,19 @@ export async function GET(request: Request) {
 
   switch (dataset) {
     case "register": {
-      const { data, error } = await supabase.from("people").select(REGISTER_COLUMNS).order("last_name");
+      const { data, error } = await supabase.from("people").select(registerColumns(canManageRegister(actor))).order("last_name");
       if (error) return NextResponse.json({ ok: false, reason: "Query failed." }, { status: 500 });
       rows = data ?? [];
       break;
     }
     case "nurses": {
-      const { data, error } = await supabase.from("people").select(REGISTER_COLUMNS).or("professional_category.eq.Nurse,professional_category.eq.Both").order("last_name");
+      const { data, error } = await supabase.from("people").select(registerColumns(canManageRegister(actor))).or("professional_category.eq.Nurse,professional_category.eq.Both").order("last_name");
       if (error) return NextResponse.json({ ok: false, reason: "Query failed." }, { status: 500 });
       rows = data ?? [];
       break;
     }
     case "midwives": {
-      const { data, error } = await supabase.from("people").select(REGISTER_COLUMNS).or("professional_category.eq.Midwife,professional_category.eq.Both").order("last_name");
+      const { data, error } = await supabase.from("people").select(registerColumns(canManageRegister(actor))).or("professional_category.eq.Midwife,professional_category.eq.Both").order("last_name");
       if (error) return NextResponse.json({ ok: false, reason: "Query failed." }, { status: 500 });
       rows = data ?? [];
       break;
