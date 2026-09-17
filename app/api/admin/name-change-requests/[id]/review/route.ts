@@ -1,9 +1,8 @@
-// The ONE place a name change request actually changes the official
-// name — people.first_name/last_name are updated here, and only here,
-// only on approval. Section 4: "The system should not automatically
-// change the official name until the appropriate administrator
-// approves the request." Rejection requires a reason, same pattern as
-// every other approval decision in this system.
+// Section 3: "Add an optional reason/comment when rejecting" — a
+// rejection reason is NOT required here, unlike license document
+// rejections (which explicitly do require one). Admins can still add
+// one; it's just never enforced as mandatory for this specific
+// workflow.
 
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -21,9 +20,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ ok: false, reason: "Invalid input." }, { status: 400 });
 
-  if (parsed.data.status === "Rejected" && !parsed.data.comment?.trim()) {
-    return NextResponse.json({ ok: false, reason: "A reason for rejection is required." }, { status: 400 });
-  }
+  // No mandatory-comment check here, deliberately — see the comment above.
 
   const supabase = createServiceRoleClient();
   const { data: reqRow, error: fetchError } = await supabase

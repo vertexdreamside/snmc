@@ -53,14 +53,14 @@ export function NameChangeRow({
         <div className="flex items-center gap-2">
           <input
             type="text"
-            placeholder={pendingAction === "Rejected" ? "Reason for rejection — required" : "Comment (optional)"}
+            placeholder={pendingAction === "Rejected" ? "Reason for rejection (optional)" : "Comment (optional)"}
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             className="flex-1 text-xs border border-council-navy/20 rounded-card px-2 py-1.5"
           />
           <button
             onClick={() => confirm(pendingAction)}
-            disabled={busy || (pendingAction === "Rejected" && !comment.trim())}
+            disabled={busy}
             className={`text-xs rounded-card px-3 py-1.5 text-white disabled:opacity-40 ${pendingAction === "Approved" ? "bg-status-active" : "bg-status-closed"}`}
           >
             Confirm {pendingAction}

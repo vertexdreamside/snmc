@@ -69,8 +69,12 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     return NextResponse.json({ ok: false, reason: "You can't remove your own admin access." }, { status: 400 });
   }
 
+  // Soft-delete only — the row, and every audit_log entry attributing a
+  // past action to this admin, must survive intact. This also disables
+  // login (is_disabled) since a "removed" account should never still be
+  // able to sign in.
   const supabase = createServiceRoleClient();
-  const { error } = await supabase.from("admin_users").delete().eq("id", params.id);
+  const { error } = await supabase.from("admin_users").update({ is_removed: true, is_disabled: true }).eq("id", params.id);
   if (error) {
     return NextResponse.json({ ok: false, reason: "Removal failed." }, { status: 500 });
   }

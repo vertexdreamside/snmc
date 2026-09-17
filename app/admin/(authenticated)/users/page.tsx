@@ -8,7 +8,8 @@ export default async function AdminUsersPage() {
 
   const { data: users } = await supabase
     .from("admin_users")
-    .select("id, full_name, role, phone, user_type, can_view_reports, can_manage_register, can_manage_elections, can_manage_admin_users, full_access, is_disabled")
+    .select("id, full_name, role, phone, user_type, can_view_reports, can_manage_register, can_manage_elections, can_manage_admin_users, full_access, is_disabled, created_at")
+    .eq("is_removed", false)
     .order("full_name");
 
   return (
@@ -16,8 +17,8 @@ export default async function AdminUsersPage() {
       <div>
         <h1 className="font-display text-xl text-council-navy">Admin Users</h1>
         <p className="font-body text-sm text-council-ink/60 mt-1">
-          Add Council office staff or members and define exactly what each person can do. New users receive an
-          email invitation to set up their sign-in.
+          Add Council office staff or members and define exactly what each person can do. A secure setup link is
+          generated for you to share with the new user directly — no email is sent automatically.
         </p>
       </div>
       <AdminUsersManager users={users ?? []} currentAdminId={currentAdmin.id} />

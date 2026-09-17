@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AdminActivityStatus } from "./AdminActivityStatus";
+import { formatSeychellesTime } from "@/lib/reports";
 
 interface AdminUserRow {
   id: string;
@@ -16,6 +17,7 @@ interface AdminUserRow {
   can_manage_admin_users: boolean;
   full_access: boolean;
   is_disabled: boolean;
+  created_at: string;
 }
 
 const PERMISSION_FIELDS = [
@@ -143,6 +145,7 @@ function UserRow({ user, isSelf, onChanged }: { user: AdminUserRow; isSelf: bool
           className="mt-1 text-xs text-council-ink/60 border-b border-transparent hover:border-council-navy/20 focus:border-council-cyan outline-none bg-transparent w-full"
         />
         {user.phone && <p className="text-xs text-council-ink/40 mt-0.5">{user.phone}</p>}
+        <p className="text-xs text-council-ink/30 mt-0.5">Created {formatSeychellesTime(user.created_at)}</p>
         {resetMessage && <p className="text-xs text-council-ink/50 mt-1">{resetMessage}</p>}
       </td>
       {PERMISSION_FIELDS.map((f) => (
