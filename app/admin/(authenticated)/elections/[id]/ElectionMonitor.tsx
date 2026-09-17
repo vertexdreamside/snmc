@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { isTallyVisible } from "@/lib/elections/tally";
-import { Users, Clock, TrendingUp } from "lucide-react";
+import { Users, Clock, TrendingUp, Crown, AlertTriangle } from "lucide-react";
+import { AutoRefresh } from "./AutoRefresh";
 
 // Turnout and time-remaining are always visible to admins. Per-candidate
 // live counts are gated by live_results_visible (Section 9) — completely
@@ -21,6 +22,10 @@ export async function ElectionMonitor({ election }: { election: { id: string; st
         .from("vote_participation").select("*", { count: "exact", head: true })
         .eq("election_id", election.id).eq("round", 2).eq("category", category);
 
+      const { count: candidateCount } = await supabase
+        .from("candidates").select("*", { count: "exact", head: true })
+        .eq("election_id", election.id).eq("category", category).eq("status", "Accepted");
+
       let tallies: { name: string; count: number }[] = [];
       if (isTallyVisible(election as any)) {
         const { data: ballotCounts } = await supabase
@@ -37,7 +42,7 @@ export async function ElectionMonitor({ election }: { election: { id: string; st
             .sort((a, b) => b.count - a.count);
         }
       }
-      return { category, eligible: eligibleCount ?? 0, voted: votedCount ?? 0, tallies };
+      return { category, eligible: eligibleCount ?? 0, voted: votedCount ?? 0, candidateCount: candidateCount ?? 0, tallies };
     })
   );
 
@@ -45,28 +50,46 @@ export async function ElectionMonitor({ election }: { election: { id: string; st
 
   return (
     <div className="bg-white rounded-card border border-council-navy/10 p-6 space-y-5">
+      {election.status === "Election Open" && <AutoRefresh intervalSeconds={15} />}
       <div className="flex items-center justify-between">
         <h3 className="font-display text-base text-council-navy flex items-center gap-2">
           <TrendingUp size={16} className="text-council-cyan" aria-hidden="true" /> Live Election Monitor
         </h3>
         {timeRemaining && <span className="flex items-center gap-1 font-body text-xs text-council-ink/60"><Clock size={12} aria-hidden="true" /> {timeRemaining}</span>}
       </div>
-      {stats.map(({ category, eligible, voted, tallies }) => {
+      {stats.map(({ category, eligible, voted, candidateCount, tallies }) => {
         const pct = eligible > 0 ? Math.round((voted / eligible) * 100) : 0;
+        const totalVotes = tallies.reduce((sum, t) => sum + t.count, 0);
+        const topCount = tallies[0]?.count ?? 0;
+        const leaders = tallies.filter((t) => t.count === topCount && topCount > 0);
+        const isTie = leaders.length > 1;
+
         return (
           <div key={category}>
             <div className="flex items-center justify-between mb-1">
               <span className="font-body text-sm font-medium text-council-navy flex items-center gap-1.5"><Users size={13} className="text-council-ink/40" aria-hidden="true" /> {category}</span>
-              <span className="font-body text-xs text-council-ink/60">{voted} of {eligible} voted ({pct}%) · {Math.max(0, eligible - voted)} not cast</span>
+              <span className="font-body text-xs text-council-ink/60">{voted} of {eligible} voted ({pct}%) · {Math.max(0, eligible - voted)} not cast · {candidateCount} candidate{candidateCount === 1 ? "" : "s"}</span>
             </div>
             <div className="h-2 bg-council-cream rounded-full overflow-hidden">
               <div className="h-full bg-council-cyan rounded-full transition-all" style={{ width: `${pct}%` }} />
             </div>
             {tallies.length > 0 && (
               <div className="mt-2 pl-4 space-y-1">
-                {tallies.map((t) => (
-                  <div key={t.name} className="flex justify-between font-body text-xs text-council-ink/60">
-                    <span>{t.name}</span><span className="font-medium text-council-navy">{t.count} vote{t.count === 1 ? "" : "s"}</span>
+                {isTie ? (
+                  <p className="flex items-center gap-1.5 font-body text-xs text-status-pending font-medium">
+                    <AlertTriangle size={12} aria-hidden="true" /> Tied for the lead — {leaders.map((l) => l.name).join(" & ")} ({topCount} votes each)
+                  </p>
+                ) : (
+                  tallies[0] && (
+                    <p className="flex items-center gap-1.5 font-body text-xs text-status-active font-medium">
+                      <Crown size={12} aria-hidden="true" /> Currently Leading: {tallies[0].name}
+                    </p>
+                  )
+                )}
+                {tallies.map((t, i) => (
+                  <div key={t.name} className="flex items-center justify-between font-body text-xs text-council-ink/60">
+                    <span>#{i + 1} {t.name}</span>
+                    <span className="font-medium text-council-navy">{t.count} vote{t.count === 1 ? "" : "s"} ({totalVotes > 0 ? Math.round((t.count / totalVotes) * 100) : 0}%)</span>
                   </div>
                 ))}
               </div>
