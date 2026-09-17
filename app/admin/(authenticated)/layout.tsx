@@ -2,6 +2,7 @@ import { requireAdmin } from "@/lib/auth/guards";
 import { Sidebar } from "./_components/Sidebar";
 import { Topbar } from "./_components/Topbar";
 import { MobileSidebarProvider } from "./_components/MobileSidebarContext";
+import { SessionExpiryWarning } from "@/lib/components/SessionExpiryWarning";
 
 // See the matching comment in app/portal/(authenticated)/layout.tsx —
 // forces fresh rendering with zero caching, added while ruling out a
@@ -14,6 +15,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <MobileSidebarProvider>
+      <SessionExpiryWarning loginPath="/admin/login" />
       <div className="min-h-screen flex bg-council-cream">
         <Sidebar
           fullName={admin.full_name}

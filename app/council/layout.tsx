@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { requireCouncillor } from "@/lib/auth/guards";
 import { LogoutButton } from "@/lib/components/LogoutButton";
+import { SessionExpiryWarning } from "@/lib/components/SessionExpiryWarning";
 
 // Councillor Portal shell (Section 4a). Default scope only — flagged in
 // the build spec as needing Council confirmation before it grows further.
@@ -16,9 +17,10 @@ export default async function CouncilLayout({ children }: { children: React.Reac
 
   return (
     <div className="min-h-screen">
+      <SessionExpiryWarning loginPath="/portal/login" />
       <header className="bg-council-navyDeep text-white px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Image src="/snmc-emblem.png" alt="" width={28} height={28} aria-hidden="true" />
+          <Image src="/snmc-emblem.png" alt="" width={34} height={34} aria-hidden="true" />
           <div className="leading-tight">
             <span className="font-display block">SNMC — Council Portal</span>
             <span className="font-body text-[10px] text-white/50 uppercase tracking-wide">Excellence in Practice &middot; Safety in Care</span>

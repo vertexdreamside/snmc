@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { requirePortalUser } from "@/lib/auth/guards";
 import { LogoutButton } from "@/lib/components/LogoutButton";
+import { SessionExpiryWarning } from "@/lib/components/SessionExpiryWarning";
 
 // Forces this route (and everything nested under it) to render fresh on
 // every single request, with zero caching at any layer — Vercel's edge,
@@ -20,10 +21,11 @@ export default async function PortalLayout({ children }: { children: React.React
 
   return (
     <div className="min-h-screen">
+      <SessionExpiryWarning loginPath="/portal/login" />
       <header className="bg-council-navy text-white px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-3">
-            <Image src="/snmc-emblem.png" alt="" width={28} height={28} aria-hidden="true" />
+            <Image src="/snmc-emblem.png" alt="" width={34} height={34} aria-hidden="true" />
             <div className="leading-tight">
               <span className="font-display block">SNMC — Nurse / Midwife Portal</span>
               <span className="font-body text-[10px] text-white/50 uppercase tracking-wide">Excellence in Practice &middot; Safety in Care</span>
