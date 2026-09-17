@@ -65,7 +65,7 @@ export default function AdminLoginPage() {
     <main className="min-h-screen flex flex-col">
       <div className="flex-1 flex items-center justify-center px-6">
         <div className="max-w-sm w-full bg-white rounded-card border border-council-navy/10 p-8">
-          <Image src="/snmc-emblem.png" alt="SNMC emblem" width={48} height={48} className="mx-auto mb-3" />
+          <Image src="/snmc-emblem.png" alt="SNMC emblem" width={72} height={72} className="mx-auto mb-3" />
           <h1 className="font-display text-2xl text-council-navy text-center">Staff Login</h1>
           <p className="font-body text-xs text-council-ink/50 uppercase tracking-wide text-center mb-6">
             Excellence in Practice &middot; Safety in Care

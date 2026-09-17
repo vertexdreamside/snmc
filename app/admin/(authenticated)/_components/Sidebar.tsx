@@ -44,8 +44,8 @@ export function Sidebar({ fullName, role, fullAccess, permissions }: SidebarProp
         } ${collapsed ? "md:w-[76px]" : "md:w-[264px]"} w-[264px]`}
       >
         <div className="flex items-center gap-3 px-5 py-5 border-b border-white/10">
-          <div className="w-9 h-9 rounded-full bg-white flex items-center justify-center shrink-0 overflow-hidden">
-            <Image src="/snmc-emblem.png" alt="SNMC" width={30} height={30} />
+          <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center shrink-0 overflow-hidden">
+            <Image src="/snmc-emblem.png" alt="SNMC" width={42} height={42} />
           </div>
           {!collapsed && (
             <div className="min-w-0 flex-1">

@@ -45,9 +45,12 @@ export default function PortalLoginPage() {
     <main className="min-h-screen flex flex-col bg-white">
       <div className="bg-council-header pt-14 pb-20 px-6">
         <div className="max-w-sm mx-auto text-center">
-          <Image src="/snmc-emblem.png" alt="SNMC emblem" width={56} height={56} className="mx-auto mb-3" priority />
+          <Image src="/snmc-emblem.png" alt="Seychelles Nurses & Midwives Council" width={112} height={112} className="mx-auto mb-3" priority />
           <p className="font-body text-xs text-council-cyanLight uppercase tracking-wide">
             Seychelles Nurses &amp; Midwives Council
+          </p>
+          <p className="font-body text-[11px] text-council-cyanLight/70 uppercase tracking-wider mt-1">
+            Excellence in Practice &middot; Safety in Care
           </p>
         </div>
       </div>

@@ -15,8 +15,8 @@ export default function HomePage() {
           <Image
             src="/snmc-emblem.png"
             alt="SNMC emblem"
-            width={64}
-            height={64}
+            width={96}
+            height={96}
             className="mx-auto mb-4"
             priority
           />
