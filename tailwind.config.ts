@@ -1,40 +1,38 @@
 import type { Config } from "tailwindcss";
 
-// Palette updated to match the actual SNMC logo's blue (sampled directly
-// from the emblem — a rich royal blue, ~#14186B) rather than the
-// near-black navy used previously. council.navy is a slightly lighter
-// tint for panels/buttons that need to read as "blue" at smaller sizes;
-// council.navyDeep is closer to the logo's own color, used for the
-// sidebar and header gradient so the brand identity is immediately
-// recognizable there.
 const config: Config = {
-  content: ["./app/**/*.{ts,tsx}", "./lib/**/*.{ts,tsx}"],
+  content: [
+    "./app/**/*.{ts,tsx}",
+    "./components/**/*.{ts,tsx}",
+  ],
   theme: {
     extend: {
       colors: {
-        council: {
-          navy: "#1B2074",
-          navyDeep: "#14186B",
-          cyan: "#17AEE0",
-          cyanLight: "#5CC8ED",
-          cream: "#FFFFFF",
-          ink: "#1A1D22",
-        },
-        status: {
-          active: "#1E7D4F",
-          pending: "#B8860B",
-          closed: "#8A2C2C",
-        },
+        "green-deep": "#0F3D2E",
+        "green-mid": "#1D5C41",
+        "green-soft": "#2E7350",
+        "green-pale": "#E7EFE9",
+        sand: "#F6F1E7",
+        "sand-deep": "#EDE3CE",
+        ink: "#16241C",
+        "ink-soft": "#3C4A41",
+        granite: "#8C8577",
+        "granite-light": "#C9C2B4",
+        gold: "#E3A857",
+        "gold-deep": "#C4863A",
       },
       fontFamily: {
-        display: ["'Baloo 2'", "Georgia", "serif"],
-        body: ["'Inter'", "system-ui", "sans-serif"],
+        display: ["var(--font-fraunces)", "serif"],
+        body: ["var(--font-work-sans)", "sans-serif"],
+        script: ["var(--font-yesteryear)", "cursive"],
       },
       borderRadius: {
-        card: "10px",
+        boulder1: "62% 38% 55% 45% / 45% 55% 45% 55%",
+        boulder2: "40% 60% 45% 55% / 55% 40% 60% 45%",
+        boulder3: "55% 45% 62% 38% / 38% 55% 45% 62%",
       },
-      backgroundImage: {
-        "council-header": "linear-gradient(180deg, #14186B 0%, #1B2074 60%, rgba(27,32,116,0) 100%)",
+      boxShadow: {
+        soft: "0 20px 45px -20px rgba(15,61,46,0.35)",
       },
     },
   },

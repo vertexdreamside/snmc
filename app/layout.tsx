@@ -1,31 +1,42 @@
 import type { Metadata } from "next";
+import { Fraunces, Work_Sans, Yesteryear } from "next/font/google";
 import "./globals.css";
 
-// Fonts loaded via a plain <link> tag in the <head> below, not
-// next/font/google. next/font fetches font files at BUILD time on
-// Vercel's own servers — a build log showed fonts.gstatic.com requests
-// failing there, which would make the whole deploy depend on Google's
-// CDN being reachable from Vercel's build machine at that exact moment.
-// A runtime <link> tag instead loads fonts in the visitor's own browser,
-// same as a plain HTML site — slightly less optimized than next/font,
-// but it can never fail the build.
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  variable: "--font-fraunces",
+  weight: ["300", "400", "500", "600", "700"],
+  style: ["normal", "italic"],
+});
+
+const workSans = Work_Sans({
+  subsets: ["latin"],
+  variable: "--font-work-sans",
+  weight: ["300", "400", "500", "600", "700"],
+});
+
+const yesteryear = Yesteryear({
+  subsets: ["latin"],
+  variable: "--font-yesteryear",
+  weight: "400",
+});
+
 export const metadata: Metadata = {
-  title: "SNMC — Seychelles Nurses & Midwives Council",
-  description: "Council voting, registration, and licence verification platform.",
+  title: {
+    default: "Sibert Residence — Guest House on La Digue, Seychelles",
+    template: "%s — Sibert Residence",
+  },
+  description:
+    "Sibert Residence is a family-run guest house on La Passe beach, La Digue, Seychelles — five minutes from the jetty, with Creole dining, a cocktail bar, souvenir shop and island excursions.",
+  icons: {
+    icon: "/images/logo/sibert-logo-green.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Inter:wght@400;500;600&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body>{children}</body>
+    <html lang="en" className={`${fraunces.variable} ${workSans.variable} ${yesteryear.variable}`}>
+      <body className="font-body antialiased">{children}</body>
     </html>
   );
 }

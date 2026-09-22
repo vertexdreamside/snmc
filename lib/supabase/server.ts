@@ -1,22 +1,22 @@
-// Server-side Supabase client — used in Server Components, Route Handlers,
-// and Server Actions. Reads/writes the session via Next.js cookies so RLS
-// policies see the signed-in user, not the anonymous role.
-//
-// Rewritten to use the getAll/setAll cookie methods, which is Supabase's
-// current documented pattern (supabase.com/docs/guides/auth/server-side/
-// creating-a-client) — the previous version used individual get/set/remove
-// methods, an older pattern a real @supabase/ssr GitHub issue (#110)
-// specifically flags as capable of causing "random logouts, early session
-// termination" — the exact symptom category this project has been stuck
-// on: a session that appears to be set successfully but isn't recognized
-// as valid on the very next request.
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import type { CookieOptions } from "@supabase/ssr";
 
-export function createClient() {
-  const cookieStore = cookies();
+export function isSupabaseConfigured() {
+  return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+}
 
-  return createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+export async function createClient() {
+  const cookieStore = await cookies();
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) {
+    throw new Error(
+      "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY (see .env.example)."
+    );
+  }
+
+  return createServerClient(url, key, {
     cookies: {
       getAll() {
         return cookieStore.getAll();
@@ -25,21 +25,10 @@ export function createClient() {
         try {
           cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
         } catch {
-          // Called from a Server Component — safe to ignore when
-          // middleware.ts is also refreshing the session.
+          // Called from a Server Component render — safe to ignore.
+          // Session refresh is handled in middleware instead.
         }
       },
     },
-  });
-}
-
-// Service-role client — server-only, bypasses RLS. Use sparingly, e.g. for
-// the data migration script and admin operations that must cross records
-// RLS would otherwise scope to a single person. NEVER import this from
-// client-facing code.
-export function createServiceRoleClient() {
-  const { createClient: createSupabaseClient } = require("@supabase/supabase-js");
-  return createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
-    auth: { autoRefreshToken: false, persistSession: false },
   });
 }

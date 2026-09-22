@@ -1,160 +1,108 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-import { ContactFooter } from "@/lib/components/ContactFooter";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Eye, EyeOff } from "lucide-react";
+import { Lock, Mail } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
-// Staff Portal login — plain email/password via Supabase Auth, deliberately
-// separate from the Nurse/Midwife reg-no/NIN/OTP flow (Section 1.1).
 export default function AdminLoginPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const supabase = createClient();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState<string | null>(searchParams.get("disabled") ? "This account has been disabled. Contact a Super Admin if you believe this is an error." : null);
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [resetMode, setResetMode] = useState(false);
-  const [resetSent, setResetSent] = useState(false);
-
-  async function logAttempt(outcome: "success" | "failure") {
-    try {
-      await fetch("/api/admin/login-audit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ outcome, email }),
-      });
-    } catch {
-      // Logging failure shouldn't block sign-in — never let this throw.
-    }
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (signInError) {
-      setError("Invalid email or password.");
-      await logAttempt("failure");
-      return;
+    try {
+      const supabase = createClient();
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      if (signInError) {
+        setError(signInError.message);
+        setLoading(false);
+        return;
+      }
+      router.push("/admin");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+      setLoading(false);
     }
-    await logAttempt("success");
-    router.push("/admin");
-  }
-
-  async function handleReset(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-    // Always show the same confirmation regardless of outcome — this
-    // must not reveal whether a given email actually has an account,
-    // same reasoning as the portal login's deliberately vague failure
-    // message.
-    await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/admin/login` });
-    setLoading(false);
-    setResetSent(true);
   }
 
   return (
-    <main className="min-h-screen flex flex-col">
-      <div className="flex-1 flex items-center justify-center px-6">
-        <div className="max-w-sm w-full bg-white rounded-card border border-council-navy/10 p-8">
-          <Image src="/snmc-emblem.png" alt="SNMC emblem" width={72} height={72} className="mx-auto mb-3" />
-          <h1 className="font-display text-2xl text-council-navy text-center">Staff Login</h1>
-          <p className="font-body text-xs text-council-ink/50 uppercase tracking-wide text-center mb-6">
-            Excellence in Practice &middot; Safety in Care
-          </p>
-
-          {resetMode ? (
-            resetSent ? (
-              <div className="text-center space-y-4">
-                <p className="font-body text-sm text-council-ink/70">
-                  If an account exists for <span className="font-medium text-council-navy">{email}</span>, a
-                  password reset link has been sent.
-                </p>
-                <button onClick={() => { setResetMode(false); setResetSent(false); }} className="font-body text-sm text-council-cyan underline">
-                  Back to Sign In
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleReset}>
-                <label className="block mb-4">
-                  <span className="font-body text-sm text-council-ink/70 block mb-1">Email</span>
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full border border-council-navy/20 rounded-card px-3 py-2 font-body focus:outline-none focus:ring-2 focus:ring-council-cyan"
-                  />
-                </label>
-                {error && <p className="font-body text-sm text-status-closed mb-4">{error}</p>}
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-council-navy text-white font-body font-medium rounded-card py-2.5 hover:bg-council-navyDeep transition-colors disabled:opacity-60"
-                >
-                  {loading ? "Sending…" : "Send Reset Link"}
-                </button>
-                <button type="button" onClick={() => setResetMode(false)} className="w-full font-body text-sm text-council-ink/50 underline mt-3">
-                  Back to Sign In
-                </button>
-              </form>
-            )
-          ) : (
-            <form onSubmit={handleSubmit}>
-              <label className="block mb-4">
-                <span className="font-body text-sm text-council-ink/70 block mb-1">Email</span>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full border border-council-navy/20 rounded-card px-3 py-2 font-body focus:outline-none focus:ring-2 focus:ring-council-cyan"
-                />
-              </label>
-              <label className="block mb-2">
-                <span className="font-body text-sm text-council-ink/70 block mb-1">Password</span>
-                <div className="relative">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full border border-council-navy/20 rounded-card px-3 py-2 pr-10 font-body focus:outline-none focus:ring-2 focus:ring-council-cyan"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-council-ink/40"
-                    aria-label={showPassword ? "Hide password" : "Show password"}
-                  >
-                    {showPassword ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
-                  </button>
-                </div>
-              </label>
-              <button type="button" onClick={() => setResetMode(true)} className="font-body text-xs text-council-cyan underline mb-4 block">
-                Forgot Password?
-              </button>
-              {error && <p className="font-body text-sm text-status-closed mb-4">{error}</p>}
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-council-navy text-white font-body font-medium rounded-card py-2.5 hover:bg-council-navyDeep transition-colors disabled:opacity-60"
-              >
-                {loading ? "Signing in…" : "Sign In"}
-              </button>
-            </form>
-          )}
+    <div className="min-h-screen bg-[#0F3D2E] flex items-center justify-center px-6">
+      <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-8">
+        <div className="flex flex-col items-center mb-6">
+          <div className="relative w-16 h-16 mb-3">
+            <Image
+              src="https://sibert.sc/wp-content/uploads/2020/11/cropped-Sibert-logo-scaled-1-270x270.png"
+              alt="Sibert Residence"
+              fill
+              sizes="64px"
+              className="object-contain"
+            />
+          </div>
+          <h1 className="text-lg font-semibold text-[#16241C]">Sibert Residence Admin</h1>
+          <p className="text-sm text-[#3C4A41] mt-1">Sign in to edit the website</p>
         </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-[#3C4A41] mb-1.5 block">
+              Email
+            </label>
+            <div className="relative">
+              <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8C8577]" />
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full border border-[#C9C2B4] rounded-lg pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:border-[#E3A857]"
+                placeholder="you@sibert.sc"
+                autoComplete="username"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-[#3C4A41] mb-1.5 block">
+              Password
+            </label>
+            <div className="relative">
+              <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8C8577]" />
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full border border-[#C9C2B4] rounded-lg pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:border-[#E3A857]"
+                placeholder="••••••••"
+                autoComplete="current-password"
+              />
+            </div>
+          </div>
+
+          {error && (
+            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-[#0F3D2E] text-white font-medium py-2.5 rounded-lg text-sm hover:bg-[#1D5C41] transition-colors disabled:opacity-60"
+          >
+            {loading ? "Signing in…" : "Sign In"}
+          </button>
+        </form>
+
+        <p className="text-xs text-[#8C8577] mt-6 text-center">
+          No account yet? Ask your developer to create one from the Supabase dashboard.
+        </p>
       </div>
-      <ContactFooter />
-    </main>
+    </div>
   );
 }
