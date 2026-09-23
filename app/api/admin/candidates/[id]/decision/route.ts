@@ -10,7 +10,6 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/guards";
 import { createServiceRoleClient } from "@/lib/supabase/server";
-import { isCandidateListLocked } from "@/lib/elections/computeTally";
 
 const decisionSchema = z.object({
   decision: z.enum(["Accepted", "Declined", "Removed"]),
@@ -31,16 +30,12 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   const { data: candidate, error: fetchError } = await supabase
     .from("candidates")
-    .select("id, election_id, category, person_id, nomination_count, status, elections(status)")
+    .select("id, election_id, category, person_id, nomination_count, status, round")
     .eq("id", params.id)
     .single();
 
   if (fetchError || !candidate) {
     return NextResponse.json({ ok: false, reason: "Candidate not found." }, { status: 404 });
-  }
-  const election = Array.isArray(candidate.elections) ? candidate.elections[0] : candidate.elections;
-  if (election && isCandidateListLocked(election.status)) {
-    return NextResponse.json({ ok: false, reason: "The candidate list is locked — voting has already started for this election." }, { status: 400 });
   }
   if (candidate.status !== "Pending") {
     return NextResponse.json(
@@ -49,9 +44,19 @@ export async function POST(request: Request, { params }: { params: { id: string 
     );
   }
 
+  // Accepting a nominee promotes them from the Round 1 (nomination) row
+  // into Round 2 (the ballot) — without this, the candidate's `round`
+  // column stays 1 forever, and the ballot page (which filters on
+  // round = 2) never shows them. Declined/Removed stay at round 1 since
+  // they never reach the ballot.
   const { error: updateError } = await supabase
     .from("candidates")
-    .update({ status: decision, decision_recorded_at: new Date().toISOString(), decision_recorded_by: actor.id })
+    .update({
+      status: decision,
+      round: decision === "Accepted" ? 2 : candidate.round,
+      decision_recorded_at: new Date().toISOString(),
+      decision_recorded_by: actor.id,
+    })
     .eq("id", candidate.id);
 
   if (updateError) {
