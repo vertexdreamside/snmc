@@ -9,10 +9,11 @@ const PAGE_SIZE = 100;
 const SORTABLE_COLUMNS = ["last_name", "first_name"] as const;
 
 export default async function AdminRegisterPage({
-  searchParams,
+  searchParams: searchParamsPromise,
 }: {
-  searchParams: { q?: string; status?: string; profile_status?: string; page?: string; sort?: string; dir?: string };
+  searchParams: Promise<{ q?: string; status?: string; profile_status?: string; page?: string; sort?: string; dir?: string }>;
 }) {
+  const searchParams = await searchParamsPromise;
   await requireAdmin();
   const supabase = createClient();
 
