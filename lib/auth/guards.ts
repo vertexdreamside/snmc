@@ -15,7 +15,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { AdminPermission, Person } from "@/lib/types/database";
 
 export async function requirePortalUser(): Promise<Person> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -36,7 +36,7 @@ export async function requirePortalUser(): Promise<Person> {
 
 export async function requireCouncillor(): Promise<{ person: Person; termId: string }> {
   const person = await requirePortalUser();
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { data: term } = await supabase
     .from("councillor_terms")
@@ -70,7 +70,7 @@ const ADMIN_SELECT =
 // detail page), and gate the actual write actions on that page's own API
 // route calls to requireAdmin([...]) instead.
 export async function requireAdmin(required?: AdminPermission[]) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

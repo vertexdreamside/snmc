@@ -15,7 +15,7 @@ export interface PendingNotification {
 }
 
 export async function getPendingNotifications(): Promise<PendingNotification[]> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const notifications: PendingNotification[] = [];
 
   const [profiles, licenseDocs, renewals, specialLicenses, nameChanges] = await Promise.all([
