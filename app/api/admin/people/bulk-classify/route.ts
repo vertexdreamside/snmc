@@ -26,13 +26,16 @@ export async function POST(request: Request) {
   const supabase = createServiceRoleClient();
   const { error, count } = await supabase
     .from("people")
-    .update({
-      professional_category: parsed.data.category,
-      category_confirmed: true,
-      updated_at: new Date().toISOString(),
-    })
+    .update(
+      {
+        professional_category: parsed.data.category,
+        category_confirmed: true,
+        updated_at: new Date().toISOString(),
+      },
+      { count: "exact" }
+    )
     .in("id", parsed.data.ids)
-    .select("id", { count: "exact" });
+    .select("id");
 
   if (error) {
     return NextResponse.json({ ok: false, reason: "Update failed." }, { status: 500 });
