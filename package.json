@@ -1,5 +1,5 @@
 {
-  "name": "sibert-residence",
+  "name": "snmc",
   "version": "1.0.0",
   "private": true,
   "scripts": {
@@ -19,7 +19,8 @@
     "zod": "^3.24.1",
     "@supabase/supabase-js": "^2.47.10",
     "@supabase/ssr": "^0.5.2",
-    "resend": "^4.0.1"
+    "resend": "^4.0.1",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "typescript": "^5.7.2",
