@@ -25,7 +25,8 @@ const patchSchema = z.object({
   value: z.union([z.boolean(), z.string()]),
 });
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, { params: paramsPromise }: { params: Promise<{ id: string }> }) {
+  const params = await paramsPromise;
   const actor = await requireAdmin(["users"]);
   const body = await request.json();
   const parsed = patchSchema.safeParse(body);
@@ -62,7 +63,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   return NextResponse.json({ ok: true });
 }
 
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(request: Request, { params: paramsPromise }: { params: Promise<{ id: string }> }) {
+  const params = await paramsPromise;
   const actor = await requireAdmin(["users"]);
 
   if (params.id === actor.id) {

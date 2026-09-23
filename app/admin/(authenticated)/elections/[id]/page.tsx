@@ -16,7 +16,8 @@ import { ScheduleForm } from "./ScheduleForm";
 import { IntegrityCheck } from "./IntegrityCheck";
 import { DisputeRecountPanel } from "./DisputeRecountPanel";
 
-export default async function ElectionDetailPage({ params }: { params: { id: string } }) {
+export default async function ElectionDetailPage({ params: paramsPromise }: { params: Promise<{ id: string }> }) {
+  const params = await paramsPromise;
   await requireAdmin();
   const supabase = createClient();
 

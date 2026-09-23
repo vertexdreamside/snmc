@@ -11,7 +11,8 @@ import { requireAdmin } from "@/lib/auth/guards";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { computeTally } from "@/lib/elections/computeTally";
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, { params: paramsPromise }: { params: Promise<{ id: string }> }) {
+  const params = await paramsPromise;
   const admin = await requireAdmin(["elections"]);
   const supabase = createServiceRoleClient();
 

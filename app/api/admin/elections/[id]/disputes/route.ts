@@ -13,7 +13,8 @@ const schema = z.object({
   reason: z.string().min(1, "A reason is required"),
 });
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, { params: paramsPromise }: { params: Promise<{ id: string }> }) {
+  const params = await paramsPromise;
   const admin = await requireAdmin(["elections"]);
   const body = await request.json();
   const parsed = schema.safeParse(body);

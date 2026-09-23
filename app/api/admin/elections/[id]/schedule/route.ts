@@ -17,7 +17,8 @@ const schema = z.object({
   round2_close_at: z.string().nullable().optional(),
 });
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, { params: paramsPromise }: { params: Promise<{ id: string }> }) {
+  const params = await paramsPromise;
   const admin = await requireAdmin(["elections"]);
   const body = await request.json();
   const parsed = schema.safeParse(body);

@@ -12,7 +12,8 @@ import { HistorySection } from "./HistorySection";
 // Professional Details, and a unified Licence Details table (Nurse,
 // Midwife, and every Special Licence as rows in ONE table, not a
 // separate isolated section) — rather than one long flat field list.
-export default async function PersonDetailPage({ params }: { params: { id: string } }) {
+export default async function PersonDetailPage({ params: paramsPromise }: { params: Promise<{ id: string }> }) {
+  const params = await paramsPromise;
   const admin = await requireAdmin();
   const supabase = createClient();
 

@@ -5,7 +5,8 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 const MAX_SIZE_BYTES = 10 * 1024 * 1024;
 const ALLOWED_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, { params: paramsPromise }: { params: Promise<{ id: string }> }) {
+  const params = await paramsPromise;
   const actor = await requireAdmin(["register"]);
 
   const formData = await request.formData();

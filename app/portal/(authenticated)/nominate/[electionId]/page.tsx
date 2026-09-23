@@ -7,7 +7,8 @@ import { isEligible } from "@/lib/auth/eligibility";
 // Digital equivalent of the paper Nomination Form. See the historical
 // instructions quoted in lib/auth's nominate/vote eligibility comments —
 // the same "who may nominate whom" rule applies here as at voting time.
-export default async function NominatePage({ params }: { params: { electionId: string } }) {
+export default async function NominatePage({ params: paramsPromise }: { params: Promise<{ electionId: string }> }) {
+  const params = await paramsPromise;
   const person = await requirePortalUser();
   const supabase = createClient();
 

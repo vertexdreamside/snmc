@@ -9,7 +9,8 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 
-export async function GET(request: Request, { params }: { params: { type: string } }) {
+export async function GET(request: Request, { params: paramsPromise }: { params: Promise<{ type: string }> }) {
+  const params = await paramsPromise;
   const licenseType = params.type === "midwife" ? "Midwife" : "Nurse";
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();

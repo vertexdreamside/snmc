@@ -16,7 +16,8 @@ const decisionSchema = z.object({
   reason: z.string().optional(),
 });
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, { params: paramsPromise }: { params: Promise<{ id: string }> }) {
+  const params = await paramsPromise;
   const actor = await requireAdmin(["elections"]);
 
   const body = await request.json().catch(() => ({}));

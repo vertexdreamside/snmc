@@ -21,7 +21,8 @@ function generateTempPassword(): string {
   return randomBytes(12).toString("base64url").slice(0, 16);
 }
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, { params: paramsPromise }: { params: Promise<{ id: string }> }) {
+  const params = await paramsPromise;
   const actor = await requireAdmin(["users"]);
   const supabase = createServiceRoleClient();
 

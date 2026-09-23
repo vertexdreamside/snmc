@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/guards";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params: paramsPromise }: { params: Promise<{ id: string }> }) {
+  const params = await paramsPromise;
   await requireAdmin(["register"]);
   const supabase = createServiceRoleClient();
   const { data: reqRow } = await supabase.from("name_change_requests").select("document_path").eq("id", params.id).single();

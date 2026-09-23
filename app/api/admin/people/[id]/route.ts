@@ -14,7 +14,8 @@ const updateSchema = z.object({
   comment: z.string().optional(),
 });
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, { params: paramsPromise }: { params: Promise<{ id: string }> }) {
+  const params = await paramsPromise;
   const admin = await requireAdmin(["register"]);
 
   const body = await request.json();

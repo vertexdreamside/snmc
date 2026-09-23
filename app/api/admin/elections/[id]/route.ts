@@ -18,7 +18,8 @@ const updateSchema = z.object({
   certificationText: z.string().optional(),
 });
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, { params: paramsPromise }: { params: Promise<{ id: string }> }) {
+  const params = await paramsPromise;
   const admin = await requireAdmin(["elections"]);
   const body = await request.json();
   const parsed = updateSchema.safeParse(body);

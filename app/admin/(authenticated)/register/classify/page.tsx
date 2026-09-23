@@ -2,7 +2,8 @@ import { requireAdmin } from "@/lib/auth/guards";
 import { createClient } from "@/lib/supabase/server";
 import { ClassifyTable } from "./ClassifyTable";
 
-export default async function ClassifyPage({ searchParams }: { searchParams: { q?: string; docStatus?: string } }) {
+export default async function ClassifyPage({ searchParams: searchParamsPromise }: { searchParams: Promise<{ q?: string; docStatus?: string }> }) {
+  const searchParams = await searchParamsPromise;
   await requireAdmin();
   const supabase = createClient();
 

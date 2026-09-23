@@ -30,7 +30,8 @@ function licenceIsActive(expiry: string | null): boolean {
   return new Date(expiry) >= new Date();
 }
 
-export default async function VerifyPage({ params }: { params: { token: string } }) {
+export default async function VerifyPage({ params: paramsPromise }: { params: Promise<{ token: string }> }) {
+  const params = await paramsPromise;
   const person = await lookupByToken(params.token);
 
   if (!person) {

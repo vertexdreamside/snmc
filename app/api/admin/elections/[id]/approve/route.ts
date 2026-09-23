@@ -18,7 +18,8 @@ const schema = z.object({
   notes: z.string().optional(),
 });
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, { params: paramsPromise }: { params: Promise<{ id: string }> }) {
+  const params = await paramsPromise;
   const admin = await requireAdmin(["elections"]);
   const body = await request.json();
   const parsed = schema.safeParse(body);

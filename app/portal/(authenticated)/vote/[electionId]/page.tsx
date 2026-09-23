@@ -4,7 +4,8 @@ import { EmptyState } from "@/lib/components/EmptyState";
 import { BallotForm } from "./BallotForm";
 import { isEligible, serviceCategoryMatches } from "@/lib/auth/eligibility";
 
-export default async function VotePage({ params }: { params: { electionId: string } }) {
+export default async function VotePage({ params: paramsPromise }: { params: Promise<{ electionId: string }> }) {
+  const params = await paramsPromise;
   const person = await requirePortalUser();
   const supabase = createClient();
 

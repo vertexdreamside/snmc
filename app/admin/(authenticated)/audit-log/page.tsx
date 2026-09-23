@@ -11,15 +11,11 @@ import { formatSeychellesTime } from "@/lib/reports";
 // person's activity — see the Admin Users page's "View activity" link.
 const PAGE_SIZE = 50;
 
-export default async function AuditLogPage({
-  searchParams: searchParamsPromise,
-}: {
-  searchParams: Promise<{ page?: string; actor?: string }>;
-}) {
+export default async function AuditLogPage({ searchParams: searchParamsPromise }: { searchParams: Promise<{ page?: string; actor?: string }> }) {
+  const searchParams = await searchParamsPromise;
   const admin = await requireAdmin(["users"]);
   const canSeeNin = canManageRegister(admin);
   const supabase = createClient();
-  const searchParams = await searchParamsPromise;
 
   const currentPage = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
   const from = (currentPage - 1) * PAGE_SIZE;

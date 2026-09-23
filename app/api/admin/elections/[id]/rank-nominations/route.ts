@@ -13,7 +13,8 @@ const schema = z.object({ topN: z.number().int().min(1).max(50).default(5) });
 
 type CandidateRow = { id: string; person_id: string; nomination_count: number };
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, { params: paramsPromise }: { params: Promise<{ id: string }> }) {
+  const params = await paramsPromise;
   const actor = await requireAdmin(["elections"]);
   const body = await request.json().catch(() => ({}));
   const parsed = schema.safeParse(body);

@@ -5,7 +5,8 @@ import Link from "next/link";
 
 const NEW_WINDOW_DAYS = 7;
 
-export default async function PendingApprovalPage({ searchParams }: { searchParams: { filter?: string; q?: string } }) {
+export default async function PendingApprovalPage({ searchParams: searchParamsPromise }: { searchParams: Promise<{ filter?: string; q?: string }> }) {
+  const searchParams = await searchParamsPromise;
   await requireAdmin(["register"]);
   const supabase = createClient();
 
