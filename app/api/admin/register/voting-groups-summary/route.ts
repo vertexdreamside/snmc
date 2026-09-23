@@ -11,7 +11,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export async function GET() {
   await requireAdmin(["elections"]);
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const categories: ("Nurse" | "Midwife")[] = ["Nurse", "Midwife"];
   const groups: ("Hospital" | "Community" | "Private")[] = ["Hospital", "Community", "Private"];

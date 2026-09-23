@@ -5,7 +5,7 @@ import { ClassifyTable } from "./ClassifyTable";
 export default async function ClassifyPage({ searchParams: searchParamsPromise }: { searchParams: Promise<{ q?: string; docStatus?: string }> }) {
   const searchParams = await searchParamsPromise;
   await requireAdmin();
-  const supabase = createClient();
+  const supabase = await createClient();
 
   let query = supabase
     .from("people")

@@ -8,7 +8,7 @@ import { ElectionReportClient } from "./ElectionReportClient";
 // one currently open, and exportable.
 export default async function ElectionReportsPage() {
   await requireAdmin(["reports"]);
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { data: elections } = await supabase
     .from("elections")

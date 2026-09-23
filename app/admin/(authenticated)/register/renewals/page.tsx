@@ -4,7 +4,7 @@ import { RenewalRow } from "./RenewalRow";
 
 export default async function LicenseRenewalsPage() {
   await requireAdmin(["register"]);
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { data: renewals } = await supabase
     .from("license_renewals")

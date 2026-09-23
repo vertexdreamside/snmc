@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export default async function CouncilHome() {
   const { termId } = await requireCouncillor();
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { data: myTerm } = await supabase
     .from("councillor_terms")

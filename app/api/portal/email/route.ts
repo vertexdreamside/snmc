@@ -14,7 +14,7 @@ import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 const schema = z.object({ email: z.string().email("Enter a valid email address") });
 
 export async function POST(request: Request) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ ok: false, reason: "Not signed in." }, { status: 401 });
 

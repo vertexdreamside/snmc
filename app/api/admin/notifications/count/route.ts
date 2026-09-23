@@ -9,7 +9,7 @@ export async function GET() {
   const showRegister = canManageRegister(admin) || isReportingOnly(admin);
   if (!showRegister) return NextResponse.json({ ok: true, count: 0 });
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const [notifications, readRows] = await Promise.all([
     getPendingNotifications(),
     supabase.from("notification_reads").select("notification_key").eq("admin_id", admin.id),

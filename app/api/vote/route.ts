@@ -18,7 +18,7 @@ const castVoteSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const supabase = createClient(); // user-scoped, so we know exactly who's asking
+  const supabase = await createClient(); // user-scoped, so we know exactly who's asking
   const {
     data: { user },
   } = await supabase.auth.getUser();

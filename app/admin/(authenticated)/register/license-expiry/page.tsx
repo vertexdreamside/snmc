@@ -10,7 +10,7 @@ import { LicenseExpiryClient } from "./LicenseExpiryClient";
 // up anywhere in Licence Expiry itself).
 export default async function LicenseExpiryPage() {
   await requireAdmin(["register"]);
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { data: people } = await supabase
     .from("people")

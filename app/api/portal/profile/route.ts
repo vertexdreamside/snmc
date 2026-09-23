@@ -58,7 +58,7 @@ const profileUpdateSchema = z.object({
 });
 
 export async function PATCH(request: Request) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

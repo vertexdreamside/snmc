@@ -4,7 +4,7 @@ import { VoterParticipationTable } from "./VoterParticipationTable";
 // Section 8: admins can see WHO has voted, never WHAT they voted for.
 // Queries vote_participation only — never ballots.
 export async function VoterParticipation({ electionId, round, category }: { electionId: string; round: number; category: "Nurse" | "Midwife" }) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const regCol = category === "Nurse" ? "nurse_reg_no" : "midwife_reg_no";
 
   const { data: eligibleVoters } = await supabase

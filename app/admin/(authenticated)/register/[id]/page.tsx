@@ -15,7 +15,7 @@ import { HistorySection } from "./HistorySection";
 export default async function PersonDetailPage({ params: paramsPromise }: { params: Promise<{ id: string }> }) {
   const params = await paramsPromise;
   const admin = await requireAdmin();
-  const supabase = createClient();
+  const supabase = await createClient();
 
   // NIN is only ever included in this query at all when the viewer is
   // actually authorized — not just hidden in the rendered JSX. A value

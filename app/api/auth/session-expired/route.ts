@@ -11,7 +11,7 @@ import { getClientIp } from "@/lib/audit/getClientIp";
 import { getDeviceInfo } from "@/lib/audit/getDeviceInfo";
 
 export async function POST(request: Request) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ ok: true }); // already gone, nothing to log
 

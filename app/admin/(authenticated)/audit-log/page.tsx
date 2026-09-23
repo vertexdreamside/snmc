@@ -15,7 +15,7 @@ export default async function AuditLogPage({ searchParams: searchParamsPromise }
   const searchParams = await searchParamsPromise;
   const admin = await requireAdmin(["users"]);
   const canSeeNin = canManageRegister(admin);
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const currentPage = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
   const from = (currentPage - 1) * PAGE_SIZE;

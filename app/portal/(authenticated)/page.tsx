@@ -6,7 +6,7 @@ import { NomineeResponseBanner } from "./NomineeResponseBanner";
 
 export default async function PortalHome() {
   const person = await requirePortalUser();
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const [{ data: openElections }, { data: nominationElections }, { data: pendingCandidacies }] = await Promise.all([
     supabase.from("elections").select("id, term_label, status").eq("status", "Election Open"),

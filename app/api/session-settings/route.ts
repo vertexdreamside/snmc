@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 export async function GET() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data } = await supabase.from("session_settings").select("warning_seconds_before_expiry").limit(1).maybeSingle();
   return NextResponse.json({ ok: true, warningSeconds: data?.warning_seconds_before_expiry ?? 120 });
 }

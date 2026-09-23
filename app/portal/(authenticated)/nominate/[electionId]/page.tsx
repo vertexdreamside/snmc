@@ -10,7 +10,7 @@ import { isEligible } from "@/lib/auth/eligibility";
 export default async function NominatePage({ params: paramsPromise }: { params: Promise<{ electionId: string }> }) {
   const params = await paramsPromise;
   const person = await requirePortalUser();
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { data: election } = await supabase
     .from("elections")

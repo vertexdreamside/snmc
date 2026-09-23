@@ -8,7 +8,7 @@ import { AutoRefresh } from "./AutoRefresh";
 // separate from, and never influencing, what voters can see (gated
 // exclusively by results_published, see app/portal/(authenticated)/results/page.tsx).
 export async function ElectionMonitor({ election }: { election: { id: string; status: string; live_results_visible: boolean; round2_close_at: string | null } }) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const categories: ("Nurse" | "Midwife")[] = ["Nurse", "Midwife"];
 
   const stats = await Promise.all(

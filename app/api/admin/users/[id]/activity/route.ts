@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 export async function GET(request: Request, { params: paramsPromise }: { params: Promise<{ id: string }> }) {
   const params = await paramsPromise;
   await requireAdmin(["users"]);
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { data: logins, count } = await supabase
     .from("audit_log")

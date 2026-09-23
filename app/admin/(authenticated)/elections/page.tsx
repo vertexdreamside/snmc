@@ -6,7 +6,7 @@ import { computeElectionStageLabel } from "@/lib/elections/tally";
 
 export default async function AdminElectionsPage() {
   await requireAdmin();
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: elections } = await supabase
     .from("elections")
     .select("id, term_label, status, results_published, approval_status")

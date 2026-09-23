@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const adminId = user
     ? (await service.from("admin_users").select("id").eq("auth_user_id", user.id).maybeSingle()).data?.id ?? null

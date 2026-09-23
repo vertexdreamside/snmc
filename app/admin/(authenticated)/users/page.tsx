@@ -5,7 +5,7 @@ import Link from "next/link";
 
 export default async function AdminUsersPage() {
   const currentAdmin = await requireAdmin(["users"]);
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { data: users } = await supabase
     .from("admin_users")

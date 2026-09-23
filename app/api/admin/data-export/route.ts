@@ -57,7 +57,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: false, reason: "Unknown dataset." }, { status: 400 });
   }
 
-  const supabase = createClient();
+  const supabase = await createClient();
   let rows: unknown[] = [];
   let targetTable = "people";
 

@@ -15,7 +15,7 @@ import { createClient } from "@/lib/supabase/server";
 // extending this page, do not thread live_results_visible into it.
 export default async function PortalResultsPage() {
   await requirePortalUser();
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { data: publishedElections } = await supabase
     .from("elections")

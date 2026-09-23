@@ -19,7 +19,7 @@ import { DisputeRecountPanel } from "./DisputeRecountPanel";
 export default async function ElectionDetailPage({ params: paramsPromise }: { params: Promise<{ id: string }> }) {
   const params = await paramsPromise;
   await requireAdmin();
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { data: election } = await supabase
     .from("elections")

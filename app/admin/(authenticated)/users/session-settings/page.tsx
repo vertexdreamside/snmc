@@ -4,7 +4,7 @@ import { SessionSettingsForm } from "./SessionSettingsForm";
 
 export default async function SessionSettingsPage() {
   await requireAdmin(["users"]);
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data } = await supabase.from("session_settings").select("warning_seconds_before_expiry").limit(1).maybeSingle();
 
   return (

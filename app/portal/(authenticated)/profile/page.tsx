@@ -38,7 +38,7 @@ function upcomingExpiryWarning(nurseExpiry: string | null, midwifeExpiry: string
 // shown here read-only so the person can still see where things stand.
 export default async function ProfilePage() {
   const person = await requirePortalUser();
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { data: emailRow } = await supabase
     .from("people_emails")

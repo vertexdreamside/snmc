@@ -20,7 +20,7 @@ import { ALLOWED_REGISTER_FIELDS, computeAgeGroupDynamic, computeLicenseStatus, 
 
 export async function GET(request: Request) {
   const admin = await requireAdmin(["reports"]);
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { data: ageBrackets } = await supabase.from("age_brackets").select("label, min_age, max_age, sort_order").order("sort_order");
   const brackets: AgeBracket[] = ageBrackets ?? [];

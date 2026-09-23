@@ -4,7 +4,7 @@ import { NameChangeRow } from "./NameChangeRow";
 
 export default async function NameChangesPage() {
   await requireAdmin(["register"]);
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { data: requests } = await supabase
     .from("name_change_requests")

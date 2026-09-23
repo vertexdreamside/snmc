@@ -10,7 +10,7 @@ import { ShieldCheck, ShieldAlert } from "lucide-react";
 // recorded" in app/api/vote/route.ts, where a person's participation was
 // recorded but their ballot write failed.
 export async function IntegrityCheck({ electionId, round }: { electionId: string; round: number }) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const categories: ("Nurse" | "Midwife")[] = ["Nurse", "Midwife"];
 
   const checks = await Promise.all(
