@@ -115,7 +115,7 @@ export async function PATCH(request: Request) {
   for (const field of EDITABLE_FIELDS) {
     if (field in cleaned) {
       const newVal = (cleaned as Record<string, unknown>)[field];
-      const oldVal = (existing as Record<string, unknown>)[field];
+      const oldVal = (existing as unknown as Record<string, unknown>)[field];
       if (newVal !== oldVal && !(newVal == null && oldVal == null)) {
         changes[field] = { from: oldVal ?? null, to: newVal ?? null };
       }
