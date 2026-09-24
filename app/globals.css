@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: #f6f1e7;
+  color: #16241c;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.boulder-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+@layer components {
+  .field-input {
+    @apply border border-granite-light rounded-lg px-3.5 py-3 text-sm bg-sand text-ink focus:outline-none focus:border-gold transition-colors;
+  }
+  .btn-primary {
+    @apply inline-flex items-center gap-2.5 bg-gold text-green-deep font-semibold px-7 py-4 rounded-full text-sm shadow-[0_16px_34px_-14px_rgba(227,168,87,0.8)] transition-all hover:-translate-y-0.5 hover:bg-white disabled:opacity-70 disabled:hover:translate-y-0;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center gap-2.5 bg-transparent text-white font-medium px-6 py-4 rounded-full text-sm border border-white/50 transition-all hover:border-gold hover:bg-white/10;
+  }
+}
