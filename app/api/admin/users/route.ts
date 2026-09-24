@@ -1,92 +1,87 @@
-// Edits a single field on an admin user (title, any permission flag, or
-// is_disabled), or removes them entirely. This file previously had the
-// WRONG content — a duplicate of the reset-password route's handler —
-// meaning permission toggles, title edits, disabling, and removal were
-// all silently broken on the live site, even though the UI called this
-// exact path correctly.
+// Creates a new Admin User or Councillor account. Section 4's exact bug
+// report: "Email rate limit exceeded" was blocking account creation
+// entirely, because inviteUserByEmail() couples two separate things
+// into one call — creating the auth user, AND having Supabase's own
+// (rate-limited) email service send the invite — with no way to
+// succeed at one without the other. If the email leg failed for any
+// reason, this returned early and never even created the admin_users
+// row.
+//
+// Fixed by switching to generateLink(), which creates the auth user and
+// returns a real invite link WITHOUT ever sending an email — there is
+// no email step here at all to rate-limit. The link is returned to the
+// admin doing the creating, so they can copy and share it however they
+// want (a message, in person, whatever the Council actually uses) — a
+// more reliable design than depending on Supabase's default email
+// sending for something this important, not just a workaround.
 
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/guards";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
-const ALLOWED_FIELDS = [
-  "role",
-  "can_view_reports",
-  "can_manage_register",
-  "can_manage_elections",
-  "can_manage_admin_users",
-  "full_access",
-  "is_disabled",
-] as const;
-
-const patchSchema = z.object({
-  field: z.enum(ALLOWED_FIELDS),
-  value: z.union([z.boolean(), z.string()]),
+const createUserSchema = z.object({
+  email: z.string().email("Enter a valid email address"),
+  fullName: z.string().min(1, "Full name is required"),
+  title: z.string().optional().default(""),
+  phone: z.string().optional().default(""),
+  userType: z.enum(["Admin", "Councillor"]).default("Admin"),
+  canViewReports: z.boolean().default(false),
+  canManageRegister: z.boolean().default(false),
+  canManageElections: z.boolean().default(false),
+  canManageAdminUsers: z.boolean().default(false),
+  fullAccess: z.boolean().default(false),
 });
 
-export async function PATCH(request: Request, { params: paramsPromise }: { params: Promise<{ id: string }> }) {
-  const params = await paramsPromise;
+export async function POST(request: Request) {
   const actor = await requireAdmin(["users"]);
   const body = await request.json();
-  const parsed = patchSchema.safeParse(body);
+  const parsed = createUserSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ ok: false, reason: "Invalid input." }, { status: 400 });
+    return NextResponse.json({ ok: false, reason: parsed.error.errors[0]?.message ?? "Invalid input." }, { status: 400 });
   }
-
-  // Guard against locking yourself out entirely.
-  if (params.id === actor.id && parsed.data.field === "full_access" && parsed.data.value === false) {
-    return NextResponse.json({ ok: false, reason: "You can't remove your own Full Access." }, { status: 400 });
-  }
-  if (params.id === actor.id && parsed.data.field === "is_disabled" && parsed.data.value === true) {
-    return NextResponse.json({ ok: false, reason: "You can't disable your own account." }, { status: 400 });
-  }
+  const data = parsed.data;
 
   const supabase = createServiceRoleClient();
-  const { error } = await supabase
+  const siteOrigin = new URL(request.url).origin;
+
+  const { data: linked, error: linkError } = await supabase.auth.admin.generateLink({
+    type: "invite",
+    email: data.email,
+    options: { redirectTo: `${siteOrigin}/auth/callback?next=${encodeURIComponent("/admin")}` },
+  });
+  if (linkError || !linked?.user) {
+    return NextResponse.json({ ok: false, reason: linkError?.message ?? "Could not create the account." }, { status: 500 });
+  }
+
+  const { data: created, error } = await supabase
     .from("admin_users")
-    .update({ [parsed.data.field]: parsed.data.value })
-    .eq("id", params.id);
+    .insert({
+      auth_user_id: linked.user.id,
+      full_name: data.fullName,
+      role: data.title || null,
+      phone: data.phone || null,
+      user_type: data.userType,
+      can_view_reports: data.canViewReports,
+      can_manage_register: data.canManageRegister,
+      can_manage_elections: data.canManageElections,
+      can_manage_admin_users: data.canManageAdminUsers,
+      full_access: data.fullAccess,
+    })
+    .select("id")
+    .single();
 
   if (error) {
-    return NextResponse.json({ ok: false, reason: "Update failed." }, { status: 500 });
+    return NextResponse.json({ ok: false, reason: "Could not create the account record." }, { status: 500 });
   }
 
   await supabase.from("audit_log").insert({
     actor_id: actor.id,
-    action: "admin_updated_admin_user",
+    action: "admin_added_user",
     target_table: "admin_users",
-    target_id: params.id,
-    details: { field: parsed.data.field, value: parsed.data.value },
+    target_id: created.id,
+    details: { email: data.email, user_type: data.userType },
   });
 
-  return NextResponse.json({ ok: true });
-}
-
-export async function DELETE(request: Request, { params: paramsPromise }: { params: Promise<{ id: string }> }) {
-  const params = await paramsPromise;
-  const actor = await requireAdmin(["users"]);
-
-  if (params.id === actor.id) {
-    return NextResponse.json({ ok: false, reason: "You can't remove your own admin access." }, { status: 400 });
-  }
-
-  // Soft-delete only — the row, and every audit_log entry attributing a
-  // past action to this admin, must survive intact. This also disables
-  // login (is_disabled) since a "removed" account should never still be
-  // able to sign in.
-  const supabase = createServiceRoleClient();
-  const { error } = await supabase.from("admin_users").update({ is_removed: true, is_disabled: true }).eq("id", params.id);
-  if (error) {
-    return NextResponse.json({ ok: false, reason: "Removal failed." }, { status: 500 });
-  }
-
-  await supabase.from("audit_log").insert({
-    actor_id: actor.id,
-    action: "admin_removed_admin_user",
-    target_table: "admin_users",
-    target_id: params.id,
-  });
-
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, id: created.id, inviteLink: linked.properties?.action_link ?? null });
 }
