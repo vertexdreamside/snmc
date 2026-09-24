@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Lock, Mail } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -36,6 +37,7 @@ export default function AdminLoginPage() {
     <div className="min-h-screen bg-council-navy flex items-center justify-center px-6">
       <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-8">
         <div className="flex flex-col items-center mb-6">
+          <Image src="/snmc-emblem.png" alt="SNMC" width={72} height={72} className="mb-3" priority />
           <h1 className="text-lg font-semibold text-council-ink">SNMC Admin</h1>
           <p className="text-sm text-council-ink/70 mt-1">Sign in to the Council Voting &amp; Registration Platform</p>
         </div>
@@ -90,7 +92,7 @@ export default function AdminLoginPage() {
         </form>
 
         <p className="text-xs text-council-ink/40 mt-6 text-center">
-          No account yet? Ask your developer to create one from the Supabase dashboard.
+          No account yet? Contact the Council office to have one created.
         </p>
       </div>
     </div>

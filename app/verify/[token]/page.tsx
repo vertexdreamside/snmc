@@ -2,6 +2,7 @@
 // Deliberately shows only the fields listed in the spec: registration
 // number, category, licence status, expiry. Nothing else about the person.
 
+import Image from "next/image";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
 async function lookupByToken(token: string) {
@@ -38,6 +39,7 @@ export default async function VerifyPage({ params: paramsPromise }: { params: Pr
     return (
       <main className="min-h-screen bg-council-cream flex items-center justify-center p-6">
         <div className="max-w-md w-full bg-white rounded-card shadow-sm p-8 text-center">
+          <Image src="/snmc-emblem.png" alt="SNMC" width={64} height={64} className="mx-auto mb-4" priority />
           <h1 className="font-display text-2xl text-council-navy mb-2">Licence not found</h1>
           <p className="font-body text-council-ink/70">
             This QR code could not be verified. If you believe this is an error, contact the SNMC office.
@@ -54,6 +56,7 @@ export default async function VerifyPage({ params: paramsPromise }: { params: Pr
   return (
     <main className="min-h-screen bg-council-cream flex items-center justify-center p-6">
       <div className="max-w-md w-full bg-white rounded-card shadow-sm p-8">
+        <Image src="/snmc-emblem.png" alt="SNMC" width={56} height={56} className="mb-4" priority />
         <div
           className={`inline-block px-3 py-1 rounded-full text-sm font-body font-medium mb-4 ${
             active ? "bg-status-active/10 text-status-active" : "bg-status-closed/10 text-status-closed"
