@@ -22,7 +22,7 @@ const config: Config = {
           header: "#081E7B",
           cyan: "#2AA7D6",
           cyanLight: "#BFE6F5",
-          cream: "#F5F3EC",
+          cream: "#F1F4F8",
           ink: "#16213A",
         },
         status: {
