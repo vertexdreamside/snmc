@@ -1,0 +1,41 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { requireAdmin } from "@/lib/auth/guards";
+import { createServiceRoleClient } from "@/lib/supabase/server";
+
+const schema = z.object({
+  status: z.enum(["Approved", "Rejected"]),
+  comment: z.string().optional(),
+});
+
+export async function POST(request: Request, { params: paramsPromise }: { params: Promise<{ id: string }> }) {
+  const params = await paramsPromise;
+  const actor = await requireAdmin(["register"]);
+  const body = await request.json();
+  const parsed = schema.safeParse(body);
+  if (!parsed.success) return NextResponse.json({ ok: false, reason: "Invalid input." }, { status: 400 });
+
+  // A rejection reason is required — enforced here, not just in the UI,
+  // so a direct API call can't reject a document with no explanation.
+  if (parsed.data.status === "Rejected" && !parsed.data.comment?.trim()) {
+    return NextResponse.json({ ok: false, reason: "A reason for rejection is required." }, { status: 400 });
+  }
+
+  const supabase = createServiceRoleClient();
+  const { data: doc, error } = await supabase
+    .from("license_documents")
+    .update({ status: parsed.data.status, reviewed_by: actor.id, reviewed_at: new Date().toISOString(), review_comment: parsed.data.comment || null })
+    .eq("id", params.id)
+    .select("person_id, license_type")
+    .single();
+
+  if (error || !doc) return NextResponse.json({ ok: false, reason: "Document not found." }, { status: 404 });
+
+  await supabase.from("audit_log").insert({
+    actor_id: actor.id, action: "admin_reviewed_license_document",
+    target_table: "license_documents", target_id: params.id,
+    details: { status: parsed.data.status, license_type: doc.license_type, person_id: doc.person_id, comment: parsed.data.comment || null },
+  });
+
+  return NextResponse.json({ ok: true });
+}
