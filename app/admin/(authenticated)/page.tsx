@@ -29,16 +29,19 @@ export default async function AdminDashboard() {
   const showRegister = canManageRegister(admin) || isReportingOnly(admin);
   const showElections = canManageElections(admin) || isReportingOnly(admin);
 
-  const [notifications, readRows] = await Promise.all([
-    showRegister ? getPendingNotifications() : Promise.resolve([]),
-    supabase.from("notification_reads").select("notification_key").eq("admin_id", admin.id),
-  ]);
-  const readKeys = (readRows.data ?? []).map((r) => r.notification_key);
-
   const yearStart = new Date(new Date().getFullYear(), 0, 1).toISOString();
 
+  // Every query below is independent of every other — none of them read
+  // each other's results — so they all belong in ONE Promise.all. This
+  // used to be split into two separate `await Promise.all(...)` stages
+  // (notifications/reads first, then everything else), which served no
+  // purpose other than forcing the whole page to pay for a second fully
+  // serialized network round-trip to Supabase on every single dashboard
+  // load. Flattening it into one batch is a real, measurable latency fix,
+  // not just a style cleanup.
   const [
-    { count: totalPeople },
+    notifications,
+    readRows,
     { count: pendingReview },
     { count: openElections },
     { count: unconfirmedCategory },
@@ -46,10 +49,10 @@ export default async function AdminDashboard() {
     { count: pendingCandidateDecisions },
     { count: pendingRenewals },
     { count: renewalsThisYear },
-    statusCounts,
     fullRegisterForBreakdowns,
   ] = await Promise.all([
-    showRegister ? supabase.from("people").select("*", { count: "exact", head: true }) : Promise.resolve({ count: 0 }),
+    showRegister ? getPendingNotifications() : Promise.resolve([]),
+    supabase.from("notification_reads").select("notification_key").eq("admin_id", admin.id),
     showRegister
       ? supabase.from("people").select("*", { count: "exact", head: true }).eq("profile_status", "Pending Review")
       : Promise.resolve({ count: 0 }),
@@ -72,17 +75,11 @@ export default async function AdminDashboard() {
       ? supabase.from("license_renewals").select("*", { count: "exact", head: true }).eq("status", "Approved").gte("reviewed_at", yearStart)
       : Promise.resolve({ count: 0 }),
     showRegister
-      ? Promise.all(
-          STATUS_LIST.map((status) =>
-            supabase.from("people").select("*", { count: "exact", head: true }).eq("registration_status", status).then((r) => ({ name: status, value: r.count ?? 0 }))
-          )
-        )
-      : Promise.resolve([]),
-    showRegister
       ? supabase.from("people").select("professional_category, registration_status, sex, date_of_birth, nurse_license_expiry, midwife_license_expiry, is_deceased")
       : Promise.resolve({ data: [] }),
   ]);
 
+  const readKeys = ((readRows as any).data ?? []).map((r: any) => r.notification_key);
   const register = (fullRegisterForBreakdowns as any).data ?? [];
 
   // "Total Nurses"/"Total Midwives" count ACTIVE professionals only —
@@ -98,6 +95,14 @@ export default async function AdminDashboard() {
 
   const expiredLicenceCount = register.filter((p: any) => computeLicenseStatus(p.nurse_license_expiry, p.midwife_license_expiry) === "Expired").length;
   const expiringSoonCount = register.filter((p: any) => computeLicenseStatus(p.nurse_license_expiry, p.midwife_license_expiry) === "Expiring Soon").length;
+
+  // Computed from the register data already fetched above instead of 7
+  // separate COUNT queries (one per status) — same result, no extra
+  // round-trips to Supabase.
+  const statusCounts = STATUS_LIST.map((status) => ({
+    name: status,
+    value: register.filter((p: any) => p.registration_status === status).length,
+  }));
 
   const ageData = AGE_GROUPS.map((group) => ({
     name: group,
