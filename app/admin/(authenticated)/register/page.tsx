@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/auth/guards";
 import { createClient } from "@/lib/supabase/server";
 import { ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { escapePostgrestFilterValue } from "@/lib/search";
 
 const STATUS_OPTIONS = ["Practising", "Not Practising", "Retired", "Abroad", "Deceased", "Deleted", "Unknown"];
 const PROFILE_STATUS_OPTIONS = ["Approved", "Pending Review", "Rejected"];
@@ -36,8 +37,14 @@ export default async function AdminRegisterPage({
     .range(from, to);
 
   if (searchParams.q) {
+    // Was interpolated straight into the .or() string unescaped — a
+    // literal comma or parenthesis in the typed search text (several real
+    // names in this register contain commas) corrupted the filter and
+    // silently returned zero matches for an exact, real name. See
+    // lib/search.ts for the confirmed-live repro and the fix.
+    const q = escapePostgrestFilterValue(searchParams.q);
     query = query.or(
-      `first_name.ilike.%${searchParams.q}%,last_name.ilike.%${searchParams.q}%,nurse_reg_no.ilike.%${searchParams.q}%,midwife_reg_no.ilike.%${searchParams.q}%`
+      `first_name.ilike.%${q}%,last_name.ilike.%${q}%,nurse_reg_no.ilike.%${q}%,midwife_reg_no.ilike.%${q}%`
     );
   }
   if (searchParams.status) {

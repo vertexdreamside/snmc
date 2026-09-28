@@ -10,6 +10,7 @@
 
 import { NextResponse } from "next/server";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
+import { escapePostgrestFilterValue } from "@/lib/search";
 
 export async function GET(request: Request) {
   const supabase = await createClient();
@@ -29,12 +30,16 @@ export async function GET(request: Request) {
   }
 
   const admin = createServiceRoleClient();
+  // See lib/search.ts — an unescaped comma or parenthesis in the typed
+  // search text corrupts this .or() filter and silently returns zero
+  // matches for a real, exact name.
+  const escapedQ = escapePostgrestFilterValue(q);
   let query = admin
     .from("people")
     .select("id, first_name, last_name, place_of_work, professional_category")
     .eq("is_deceased", false)
     .eq("category_confirmed", true)
-    .or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%`)
+    .or(`first_name.ilike.%${escapedQ}%,last_name.ilike.%${escapedQ}%`)
     .limit(10);
 
   if (category === "Nurse" || category === "Midwife") {

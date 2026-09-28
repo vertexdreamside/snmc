@@ -1,6 +1,7 @@
 import { requireAdmin } from "@/lib/auth/guards";
 import { createClient } from "@/lib/supabase/server";
 import { ClassifyTable } from "./ClassifyTable";
+import { escapePostgrestFilterValue } from "@/lib/search";
 
 export default async function ClassifyPage({ searchParams: searchParamsPromise }: { searchParams: Promise<{ q?: string; docStatus?: string }> }) {
   const searchParams = await searchParamsPromise;
@@ -15,7 +16,10 @@ export default async function ClassifyPage({ searchParams: searchParamsPromise }
     .limit(500);
 
   if (searchParams.q) {
-    const q = searchParams.q;
+    // See lib/search.ts — an unescaped comma or parenthesis in the typed
+    // search text corrupts this .or() filter and silently returns zero
+    // matches for a real, exact name.
+    const q = escapePostgrestFilterValue(searchParams.q);
     query = query.or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,nurse_reg_no.ilike.%${q}%,midwife_reg_no.ilike.%${q}%`);
   }
 
