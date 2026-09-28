@@ -10,6 +10,7 @@ import { canManageRegister, canManageElections, isReportingOnly } from "@/lib/au
 import { computeAgeGroup, computeLicenseStatus, AGE_GROUPS } from "@/lib/reports";
 import { getPendingNotifications } from "@/lib/notifications/getPendingNotifications";
 import { NotificationsPanel } from "./NotificationsPanel";
+import { fetchAllRows } from "@/lib/supabase/paginate";
 
 const STATUS_LIST = ["Practising", "Not Practising", "Retired", "Abroad", "Deceased", "Deleted", "Unknown"] as const;
 const INACTIVE_STATUSES = ["Not Practising", "Retired", "Abroad", "Unknown"];
@@ -74,13 +75,25 @@ export default async function AdminDashboard() {
     showRegister
       ? supabase.from("license_renewals").select("*", { count: "exact", head: true }).eq("status", "Approved").gte("reviewed_at", yearStart)
       : Promise.resolve({ count: 0 }),
+    // Was a single unbounded `.select(...)` with no `.limit()` — Supabase/
+    // PostgREST silently caps any query's returned rows at its own
+    // server-side maximum (1,000 here) no matter what the app asks for,
+    // so once the register passed 1,000 people this was quietly computing
+    // every stat below (nurse/midwife totals, active/inactive counts,
+    // expired/expiring-soon licence counts, the age/gender/status charts)
+    // from only the first 1,000 of what is now 1,356 people — e.g. the
+    // "Expired Licences" tile read 597 against a true count of 665.
+    // fetchAllRows pages through with .range() so this always reflects
+    // the complete register, however large it grows.
     showRegister
-      ? supabase.from("people").select("professional_category, registration_status, sex, date_of_birth, nurse_license_expiry, midwife_license_expiry, is_deceased")
-      : Promise.resolve({ data: [] }),
+      ? fetchAllRows<{ professional_category: string; registration_status: string; sex: string | null; date_of_birth: string | null; nurse_license_expiry: string | null; midwife_license_expiry: string | null; is_deceased: boolean }>(() =>
+          supabase.from("people").select("professional_category, registration_status, sex, date_of_birth, nurse_license_expiry, midwife_license_expiry, is_deceased") as any
+        )
+      : Promise.resolve([]),
   ]);
 
   const readKeys = ((readRows as any).data ?? []).map((r: any) => r.notification_key);
-  const register = (fullRegisterForBreakdowns as any).data ?? [];
+  const register = fullRegisterForBreakdowns as any[];
 
   // "Total Nurses"/"Total Midwives" count ACTIVE professionals only —
   // per explicit direction, deceased people are excluded from these

@@ -17,6 +17,7 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/guards";
 import { createClient } from "@/lib/supabase/server";
 import { ALLOWED_REGISTER_FIELDS, computeAgeGroupDynamic, computeLicenseStatus, type AgeBracket } from "@/lib/reports";
+import { fetchAllRows } from "@/lib/supabase/paginate";
 
 export async function GET(request: Request) {
   const admin = await requireAdmin(["reports"]);
@@ -62,22 +63,31 @@ export async function GET(request: Request) {
     ])
   );
 
-  let query = supabase.from("people").select(selectColumns.join(",")).order("last_name").limit(2000);
-  if (status) query = query.eq("registration_status", status);
-  if (category) query = query.eq("professional_category", category);
-  if (dateFrom) query = query.gte("created_at", dateFrom);
-  if (dateTo) query = query.lte("created_at", dateTo);
-  if (sexFilter.length > 0) query = query.in("sex", sexFilter);
-  if (employmentSectorFilter.length > 0) query = query.in("employment_sector", employmentSectorFilter);
-  if (serviceCategoryFilter.length > 0) query = query.in("service_category", serviceCategoryFilter);
-  if (profileStatusFilter.length > 0) query = query.in("profile_status", profileStatusFilter);
-
-  const { data, error } = await query;
-  if (error) {
+  // Was `.limit(2000)` — but Supabase/PostgREST silently caps every
+  // query's returned rows at its own server-side maximum (1,000 here)
+  // regardless of what the app requests, so this was quietly returning at
+  // most 1,000 of what is now 1,356 people, with no error and nothing in
+  // the response to say rows were dropped (confirmed live: an unfiltered
+  // report here returned exactly 1,000 rows). fetchAllRows pages through
+  // with .range() instead, so a report always reflects every matching
+  // record, however large the register grows.
+  let rows: Record<string, unknown>[];
+  try {
+    rows = (await fetchAllRows<Record<string, unknown>>(() => {
+      let q = supabase.from("people").select(selectColumns.join(",")).order("last_name");
+      if (status) q = q.eq("registration_status", status);
+      if (category) q = q.eq("professional_category", category);
+      if (dateFrom) q = q.gte("created_at", dateFrom);
+      if (dateTo) q = q.lte("created_at", dateTo);
+      if (sexFilter.length > 0) q = q.in("sex", sexFilter);
+      if (employmentSectorFilter.length > 0) q = q.in("employment_sector", employmentSectorFilter);
+      if (serviceCategoryFilter.length > 0) q = q.in("service_category", serviceCategoryFilter);
+      if (profileStatusFilter.length > 0) q = q.in("profile_status", profileStatusFilter);
+      return q as any;
+    })) as unknown as Record<string, unknown>[];
+  } catch {
     return NextResponse.json({ ok: false, reason: "Report query failed." }, { status: 500 });
   }
-
-  let rows = (data ?? []) as unknown as Record<string, unknown>[];
 
   // Synthetic-field filtering happens against the raw underlying
   // column(s), before those get stripped out of the final output below.

@@ -18,6 +18,7 @@ import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { computeLicenseStatus } from "@/lib/reports";
 import { redactNinFromDetails } from "@/lib/licenses";
 import { canManageRegister } from "@/lib/auth/permissions";
+import { fetchAllRows } from "@/lib/supabase/paginate";
 
 const DATASETS = [
   "register",
@@ -62,34 +63,57 @@ export async function GET(request: Request) {
   let targetTable = "people";
 
   switch (dataset) {
+    // The "register"/"nurses"/"midwives"/"licenses"/"expired_licenses"
+    // cases below all query the `people` table with no `.limit()` at
+    // all. Supabase/PostgREST silently caps any query's returned rows at
+    // its own server-side maximum (1,000 here) no matter what the app
+    // asks for — so with the register now at 1,356 people, these exports
+    // were silently missing everyone past the first 1,000, with no error
+    // and nothing in the downloaded file to say rows were dropped.
+    // fetchAllRows pages through with .range() so an export always
+    // contains every matching record, however large the register grows.
     case "register": {
-      const { data, error } = await supabase.from("people").select(registerColumns(canManageRegister(actor))).order("last_name");
-      if (error) return NextResponse.json({ ok: false, reason: "Query failed." }, { status: 500 });
-      rows = data ?? [];
+      try {
+        rows = await fetchAllRows<any>(() => supabase.from("people").select(registerColumns(canManageRegister(actor))).order("last_name") as any);
+      } catch {
+        return NextResponse.json({ ok: false, reason: "Query failed." }, { status: 500 });
+      }
       break;
     }
     case "nurses": {
-      const { data, error } = await supabase.from("people").select(registerColumns(canManageRegister(actor))).or("professional_category.eq.Nurse,professional_category.eq.Both").order("last_name");
-      if (error) return NextResponse.json({ ok: false, reason: "Query failed." }, { status: 500 });
-      rows = data ?? [];
+      try {
+        rows = await fetchAllRows<any>(() => supabase.from("people").select(registerColumns(canManageRegister(actor))).or("professional_category.eq.Nurse,professional_category.eq.Both").order("last_name") as any);
+      } catch {
+        return NextResponse.json({ ok: false, reason: "Query failed." }, { status: 500 });
+      }
       break;
     }
     case "midwives": {
-      const { data, error } = await supabase.from("people").select(registerColumns(canManageRegister(actor))).or("professional_category.eq.Midwife,professional_category.eq.Both").order("last_name");
-      if (error) return NextResponse.json({ ok: false, reason: "Query failed." }, { status: 500 });
-      rows = data ?? [];
+      try {
+        rows = await fetchAllRows<any>(() => supabase.from("people").select(registerColumns(canManageRegister(actor))).or("professional_category.eq.Midwife,professional_category.eq.Both").order("last_name") as any);
+      } catch {
+        return NextResponse.json({ ok: false, reason: "Query failed." }, { status: 500 });
+      }
       break;
     }
     case "licenses": {
-      const { data, error } = await supabase.from("people").select("first_name, last_name, nurse_reg_no, midwife_reg_no, nurse_license_no, nurse_license_expiry, midwife_license_no, midwife_license_expiry").order("last_name");
-      if (error) return NextResponse.json({ ok: false, reason: "Query failed." }, { status: 500 });
-      rows = (data ?? []).map((p: any) => ({ ...p, license_status: computeLicenseStatus(p.nurse_license_expiry, p.midwife_license_expiry) }));
+      let data: any[];
+      try {
+        data = await fetchAllRows<any>(() => supabase.from("people").select("first_name, last_name, nurse_reg_no, midwife_reg_no, nurse_license_no, nurse_license_expiry, midwife_license_no, midwife_license_expiry").order("last_name") as any);
+      } catch {
+        return NextResponse.json({ ok: false, reason: "Query failed." }, { status: 500 });
+      }
+      rows = data.map((p: any) => ({ ...p, license_status: computeLicenseStatus(p.nurse_license_expiry, p.midwife_license_expiry) }));
       break;
     }
     case "expired_licenses": {
-      const { data, error } = await supabase.from("people").select("first_name, last_name, nurse_reg_no, midwife_reg_no, nurse_license_expiry, midwife_license_expiry").order("last_name");
-      if (error) return NextResponse.json({ ok: false, reason: "Query failed." }, { status: 500 });
-      rows = (data ?? []).filter((p: any) => computeLicenseStatus(p.nurse_license_expiry, p.midwife_license_expiry) === "Expired");
+      let data: any[];
+      try {
+        data = await fetchAllRows<any>(() => supabase.from("people").select("first_name, last_name, nurse_reg_no, midwife_reg_no, nurse_license_expiry, midwife_license_expiry").order("last_name") as any);
+      } catch {
+        return NextResponse.json({ ok: false, reason: "Query failed." }, { status: 500 });
+      }
+      rows = data.filter((p: any) => computeLicenseStatus(p.nurse_license_expiry, p.midwife_license_expiry) === "Expired");
       break;
     }
     case "license_renewals": {
@@ -190,9 +214,19 @@ export async function GET(request: Request) {
       break;
     }
     case "audit_log": {
-      const { data, error } = await supabase.from("audit_log").select("action, target_table, target_id, ip_address, details, created_at").order("created_at", { ascending: false }).limit(5000);
-      if (error) return NextResponse.json({ ok: false, reason: "Query failed." }, { status: 500 });
-      rows = (data ?? []).map((a: any) => ({ ...a, details: a.details ? JSON.stringify(redactNinFromDetails(a.details, canManageRegister(actor))) : "" }));
+      // `.limit(5000)` here reads like a real cap, but Supabase/PostgREST
+      // silently overrides any client `.limit()` above its own
+      // server-side maximum (1,000) — so with the audit log now at 1,249
+      // rows, this was already quietly exporting an incomplete log.
+      // fetchAllRows pages through with .range() instead, capped at 5000
+      // to match this export's original intent.
+      let data: any[];
+      try {
+        data = await fetchAllRows<any>(() => supabase.from("audit_log").select("action, target_table, target_id, ip_address, details, created_at").order("created_at", { ascending: false }) as any);
+      } catch {
+        return NextResponse.json({ ok: false, reason: "Query failed." }, { status: 500 });
+      }
+      rows = data.slice(0, 5000).map((a: any) => ({ ...a, details: a.details ? JSON.stringify(redactNinFromDetails(a.details, canManageRegister(actor))) : "" }));
       targetTable = "audit_log";
       break;
     }
