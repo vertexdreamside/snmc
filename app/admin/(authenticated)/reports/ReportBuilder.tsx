@@ -37,7 +37,11 @@ const SUB_FILTERS: Record<string, { param: string; options: string[] }> = {
   sex: { param: "sexFilter", options: ["M", "F"] },
   age_group: { param: "ageGroupFilter", options: SELECTABLE_AGE_GROUPS },
   employment_sector: { param: "employmentSectorFilter", options: ["Government", "Private"] },
-  service_category: { param: "serviceCategoryFilter", options: ["Hospital", "Community", "Private"] },
+  // Full 8-value set from the people.service_category check constraint
+  // (migration 0024) — this previously only offered 3 of the 8 values,
+  // silently making anyone in Education/Regulatory/Retired/Unemployed/
+  // Unspecified impossible to isolate via this filter.
+  service_category: { param: "serviceCategoryFilter", options: ["Hospital", "Community", "Private", "Unspecified", "Education", "Regulatory", "Retired", "Unemployed"] },
   profile_status: { param: "profileStatusFilter", options: ["Approved", "Pending Review", "Rejected"] },
   license_status: { param: "licenseStatusFilter", options: LICENSE_STATUSES },
 };

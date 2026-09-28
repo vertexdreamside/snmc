@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { computeElectionStageLabel } from "@/lib/elections/tally";
+import { formatSeychellesTime } from "@/lib/reports";
 
 // Round 1 = Nomination, Round 2 = Election — per the historical process
 // (Nomination_Paper_1st_Round_2012 / the 2nd-round ballot form) and
@@ -48,7 +49,7 @@ export function ElectionControls({
     const closeDate = newStatus === "Nomination Closed" ? round1CloseAt : newStatus === "Election Closed" ? round2CloseAt : null;
     if (closeDate && new Date(closeDate) > new Date()) {
       const daysLeft = Math.ceil((new Date(closeDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-      if (!confirm(`This round isn't scheduled to close for another ${daysLeft} day${daysLeft === 1 ? "" : "s"} (${new Date(closeDate).toLocaleDateString()}). Close it early anyway?`)) {
+      if (!confirm(`This round isn't scheduled to close for another ${daysLeft} day${daysLeft === 1 ? "" : "s"} (${formatSeychellesTime(closeDate)}). Close it early anyway?`)) {
         return;
       }
     }

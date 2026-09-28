@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Gavel, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { formatSeychellesTime } from "@/lib/reports";
 
 interface Dispute {
   id: string;
@@ -114,7 +115,7 @@ export function DisputeRecountPanel({
         disputes.map((d) => (
           <div key={d.id} className="border border-council-navy/10 rounded-card p-3 space-y-2">
             <div className="flex items-center justify-between">
-              <p className="font-body text-sm font-medium text-council-navy">{d.category} — filed {new Date(d.filed_at).toLocaleDateString()}</p>
+              <p className="font-body text-sm font-medium text-council-navy">{d.category} — filed {formatSeychellesTime(d.filed_at)}</p>
               <span className={`text-xs font-medium ${d.status === "Resolved" ? "text-status-active" : "text-status-pending"}`}>{d.status}</span>
             </div>
             <p className="font-body text-xs text-council-ink/60 italic">"{d.reason}"</p>

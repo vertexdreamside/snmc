@@ -51,14 +51,6 @@ export async function POST(request: Request) {
     refresh_token: parsed.data.refresh_token,
   });
 
-  console.log("SET-SESSION DEBUG", {
-    hasError: !!error,
-    errorMessage: error?.message,
-    hasSession: !!data.session,
-    userId: data.session?.user?.id,
-    cookiesAttached: response.cookies.getAll().map((c) => c.name),
-  });
-
   if (error || !data.session) {
     return NextResponse.json({ ok: false, reason: error?.message ?? "Could not establish session." }, { status: 400 });
   }

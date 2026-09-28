@@ -5,7 +5,7 @@ import { CreateElectionForm } from "./CreateElectionForm";
 import { computeElectionStageLabel } from "@/lib/elections/tally";
 
 export default async function AdminElectionsPage() {
-  await requireAdmin();
+  await requireAdmin(["elections"]);
   const supabase = await createClient();
   const { data: elections } = await supabase
     .from("elections")

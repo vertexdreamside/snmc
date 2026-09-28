@@ -7,9 +7,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/guards";
 import { createServiceRoleClient } from "@/lib/supabase/server";
-
-const MAX_SIZE_BYTES = 10 * 1024 * 1024;
-const ALLOWED_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
+import { MAX_UPLOAD_SIZE_BYTES, ALLOWED_UPLOAD_TYPES, UPLOAD_TOO_LARGE_MESSAGE, UPLOAD_BAD_TYPE_MESSAGE } from "@/lib/uploads";
 
 export async function POST(request: Request, { params: paramsPromise }: { params: Promise<{ id: string }> }) {
   const params = await paramsPromise;
@@ -17,8 +15,8 @@ export async function POST(request: Request, { params: paramsPromise }: { params
   const formData = await request.formData();
   const file = formData.get("file") as File | null;
   if (!file) return NextResponse.json({ ok: false, reason: "No file provided." }, { status: 400 });
-  if (file.size > MAX_SIZE_BYTES) return NextResponse.json({ ok: false, reason: "File is too large (10MB max)." }, { status: 400 });
-  if (!ALLOWED_TYPES.includes(file.type)) return NextResponse.json({ ok: false, reason: "Only PDF, JPEG, PNG, or WEBP files are accepted." }, { status: 400 });
+  if (file.size > MAX_UPLOAD_SIZE_BYTES) return NextResponse.json({ ok: false, reason: UPLOAD_TOO_LARGE_MESSAGE }, { status: 400 });
+  if (!ALLOWED_UPLOAD_TYPES.includes(file.type)) return NextResponse.json({ ok: false, reason: UPLOAD_BAD_TYPE_MESSAGE }, { status: 400 });
 
   const supabase = createServiceRoleClient();
   const { data: license } = await supabase.from("special_licenses").select("person_id").eq("id", params.id).single();

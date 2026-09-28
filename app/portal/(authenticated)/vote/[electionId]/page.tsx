@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/lib/components/EmptyState";
 import { BallotForm } from "./BallotForm";
 import { isEligible, serviceCategoryMatches } from "@/lib/auth/eligibility";
+import { formatSeychellesTime } from "@/lib/reports";
 
 export default async function VotePage({ params: paramsPromise }: { params: Promise<{ electionId: string }> }) {
   const params = await paramsPromise;
@@ -33,7 +34,7 @@ export default async function VotePage({ params: paramsPromise }: { params: Prom
     const now = Date.now();
     let message = `Voting for ${election.term_label} is not currently open.`;
     if (election.round2_open_at && new Date(election.round2_open_at).getTime() > now) {
-      message = `Voting for ${election.term_label} opens on ${new Date(election.round2_open_at).toLocaleString()}.`;
+      message = `Voting for ${election.term_label} opens on ${formatSeychellesTime(election.round2_open_at)}.`;
     } else if (election.round2_close_at && new Date(election.round2_close_at).getTime() <= now) {
       message = `Voting for ${election.term_label} has closed.`;
     }

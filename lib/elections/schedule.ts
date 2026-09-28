@@ -6,6 +6,8 @@
 // intentionally separate from and simpler than the existing detailed
 // election.status field elsewhere in this system.
 
+import { formatSeychellesTime } from "@/lib/reports";
+
 export interface ScheduleFields {
   round1_open_at: string | null;
   round1_close_at: string | null;
@@ -33,10 +35,10 @@ export function computeRoundScheduleState(openAt: string | null, closeAt: string
 export function isWithinScheduledWindow(openAt: string | null, closeAt: string | null): { allowed: boolean; reason?: string } {
   const now = Date.now();
   if (openAt && now < new Date(openAt).getTime()) {
-    return { allowed: false, reason: `This isn't open yet — it's scheduled to open on ${new Date(openAt).toLocaleString()}.` };
+    return { allowed: false, reason: `This isn't open yet — it's scheduled to open on ${formatSeychellesTime(openAt)}.` };
   }
   if (closeAt && now >= new Date(closeAt).getTime()) {
-    return { allowed: false, reason: `This closed on ${new Date(closeAt).toLocaleString()} and is no longer accepting submissions.` };
+    return { allowed: false, reason: `This closed on ${formatSeychellesTime(closeAt)} and is no longer accepting submissions.` };
   }
   return { allowed: true };
 }

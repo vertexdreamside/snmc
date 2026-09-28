@@ -31,8 +31,12 @@ export const AGE_GROUPS: AgeGroupLabel[] = ["Under 30", "30–39", "40–49", "5
 // DOB as its own thing (e.g. the dashboard's age distribution chart).
 export const SELECTABLE_AGE_GROUPS: AgeGroupLabel[] = ["Under 30", "30–39", "40–49", "50–59", "60 and over"];
 
-export type LicenseStatusLabel = "Expired" | "Expiring Soon" | "Valid" | "Not on File";
-export const LICENSE_STATUSES: LicenseStatusLabel[] = ["Expired", "Expiring Soon", "Valid", "Not on File"];
+// "Active" (not "Valid") — standardized to match the wording already used
+// everywhere else this state is shown (LicenceDetailsSection, the License
+// Expiry page, the portal profile). This is a computed/derived label, not
+// a stored column, so renaming it here is a pure code change.
+export type LicenseStatusLabel = "Expired" | "Expiring Soon" | "Active" | "Not on File";
+export const LICENSE_STATUSES: LicenseStatusLabel[] = ["Expired", "Expiring Soon", "Active", "Not on File"];
 
 // Derived from date_of_birth, not NIN — Seychelles' NIN doesn't have a
 // confirmed, verifiable birthdate encoding, and NIN is also still blank
@@ -85,6 +89,21 @@ export function computeAgeGroupDynamic(dateOfBirth: string | null, brackets: Age
 // hold one, or both).
 const LICENSE_WARNING_WINDOW_DAYS = 90;
 
+// nurse_license_expiry/midwife_license_expiry etc. are stored as bare
+// `date` columns (no time-of-day, no timezone) — e.g. "2026-09-28".
+// `new Date("2026-09-28")` parses that as 2026-09-28T00:00:00Z, which is
+// only 2026-09-28T04:00 in Seychelles (UTC+4, no DST). Comparing that
+// instant directly against `Date.now()` made a licence flip to "Expired"
+// at 4am on its own expiry day — nearly 20 hours before that calendar
+// day has actually finished in Seychelles. A licence dated 2026-09-28
+// should stay valid through the end of that date locally, i.e. until
+// 2026-09-28T20:00:00Z (Seychelles local midnight beginning the next
+// day). This computes that real cutoff instant instead of using the
+// raw UTC-midnight parse.
+function expiryCutoffInstant(dateOnly: string): number {
+  return new Date(dateOnly).getTime() + 20 * 60 * 60 * 1000;
+}
+
 // Single-date version of the same Active/Expiring Soon/Expired logic
 // above — used wherever one specific licence's own expiry is being
 // shown (a special licence, a single row in the unified Licence Details
@@ -95,21 +114,21 @@ const LICENSE_WARNING_WINDOW_DAYS = 90;
 // needs changing in one place.
 export function computeSingleExpiryStatus(expiryDate: string | null): "Active" | "Expiring Soon" | "Expired" | null {
   if (!expiryDate) return null;
-  const days = Math.floor((new Date(expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  const days = Math.floor((expiryCutoffInstant(expiryDate) - Date.now()) / (1000 * 60 * 60 * 24));
   if (days < 0) return "Expired";
   if (days <= LICENSE_WARNING_WINDOW_DAYS) return "Expiring Soon";
   return "Active";
 }
 
 export function computeLicenseStatus(nurseExpiry: string | null, midwifeExpiry: string | null): LicenseStatusLabel {
-  const dates = [nurseExpiry, midwifeExpiry].filter((d): d is string => !!d).map((d) => new Date(d));
-  if (dates.length === 0) return "Not on File";
-  const soonest = dates.reduce((a, b) => (a < b ? a : b));
-  const today = new Date();
-  const warningDate = new Date(today.getTime() + LICENSE_WARNING_WINDOW_DAYS * 24 * 60 * 60 * 1000);
-  if (soonest < today) return "Expired";
-  if (soonest <= warningDate) return "Expiring Soon";
-  return "Valid";
+  const cutoffs = [nurseExpiry, midwifeExpiry].filter((d): d is string => !!d).map((d) => expiryCutoffInstant(d));
+  if (cutoffs.length === 0) return "Not on File";
+  const soonest = Math.min(...cutoffs);
+  const now = Date.now();
+  const warningInstant = now + LICENSE_WARNING_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+  if (soonest < now) return "Expired";
+  if (soonest <= warningInstant) return "Expiring Soon";
+  return "Active";
 }
 
 // Seychelles Time (UTC+4, no daylight saving) — Section 5/7 explicitly

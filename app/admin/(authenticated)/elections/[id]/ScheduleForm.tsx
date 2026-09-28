@@ -3,17 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarClock } from "lucide-react";
-
-type RoundScheduleState = "Not Scheduled" | "Scheduled" | "Active" | "Closed";
-
-function computeState(openAt: string | null, closeAt: string | null): RoundScheduleState {
-  const now = Date.now();
-  if (!openAt) return "Not Scheduled";
-  const opens = new Date(openAt).getTime();
-  if (now < opens) return "Scheduled";
-  if (closeAt && now >= new Date(closeAt).getTime()) return "Closed";
-  return "Active";
-}
+import { computeRoundScheduleState, type RoundScheduleState } from "@/lib/elections/schedule";
 
 function formatCountdown(target: string): string {
   const diff = new Date(target).getTime() - Date.now();
@@ -93,8 +83,8 @@ export function ScheduleForm({
     }
   }
 
-  const round1State = computeState(round1OpenAt, round1CloseAt);
-  const round2State = computeState(round2OpenAt, round2CloseAt);
+  const round1State = computeRoundScheduleState(round1OpenAt, round1CloseAt);
+  const round2State = computeRoundScheduleState(round2OpenAt, round2CloseAt);
 
   return (
     <div className="bg-white rounded-card border border-council-navy/10 p-6 space-y-4">

@@ -24,7 +24,7 @@ export async function POST(request: Request) {
   }
 
   const supabase = createServiceRoleClient();
-  const { error, count } = await supabase
+  const { data: updatedRows, error, count } = await supabase
     .from("people")
     .update(
       {
@@ -41,11 +41,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, reason: "Update failed." }, { status: 500 });
   }
 
+  // Records the actual set of person IDs this batch affected (not just a
+  // count) — a bulk action naturally has no single target_id, but without
+  // the real ID list here the audit trail couldn't confirm which specific
+  // records a given bulk-confirm actually touched.
   await supabase.from("audit_log").insert({
     actor_id: admin.id,
     action: "admin_bulk_confirmed_category",
     target_table: "people",
-    details: { category: parsed.data.category, count: parsed.data.ids.length },
+    details: { category: parsed.data.category, count: parsed.data.ids.length, person_ids: (updatedRows ?? []).map((r) => r.id) },
   });
 
   return NextResponse.json({ ok: true, updated: count ?? parsed.data.ids.length });

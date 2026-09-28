@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Landmark, AlertTriangle, CheckCircle2, Upload, FileText } from "lucide-react";
+import { formatSeychellesTime } from "@/lib/reports";
 
 // Sections 25-26: closing an election doesn't publish it — Council
 // Review → Minister Approval → Publication. This panel is where that
@@ -82,7 +83,7 @@ export function ApprovalPanel({
           <CheckCircle2 size={16} className="text-status-active mt-0.5" aria-hidden="true" />
           <div className="flex-1">
             <p className="font-body text-sm font-medium text-council-navy">Approved</p>
-            {approvedAt && <p className="font-body text-xs text-council-ink/60">{new Date(approvedAt).toLocaleString()}</p>}
+            {approvedAt && <p className="font-body text-xs text-council-ink/60">{formatSeychellesTime(approvedAt)}</p>}
             {approvalReference && <p className="font-body text-xs text-council-ink/60">Reference: {approvalReference}</p>}
             {approvalNotes && <p className="font-body text-xs text-council-ink/60 italic">"{approvalNotes}"</p>}
 

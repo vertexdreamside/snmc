@@ -112,7 +112,10 @@ export async function POST(request: Request) {
     .eq("category", category)
     .maybeSingle();
 
+  let candidateId: string;
+
   if (existing) {
+    candidateId = existing.id;
     // Sector is set once, by whoever nominates this person first — a
     // later nominator specifying a different sector doesn't silently
     // overwrite it (that could let one nominator quietly move someone
@@ -132,29 +135,40 @@ export async function POST(request: Request) {
       });
     }
   } else {
-    const { error: insertError } = await admin.from("candidates").insert({
-      election_id: electionId,
-      person_id: candidatePersonId,
-      category,
-      nominated_by: nominator.id,
-      current_placement_note: currentPlacement,
-      service_category: serviceCategory,
-      round: 1,
-      status: "Nominated",
-      nomination_count: 1,
-    });
-    if (insertError) return NextResponse.json({ ok: false, reason: "Could not record the nomination." }, { status: 500 });
+    const { data: inserted, error: insertError } = await admin
+      .from("candidates")
+      .insert({
+        election_id: electionId,
+        person_id: candidatePersonId,
+        category,
+        nominated_by: nominator.id,
+        current_placement_note: currentPlacement,
+        service_category: serviceCategory,
+        round: 1,
+        status: "Nominated",
+        nomination_count: 1,
+      })
+      .select("id")
+      .single();
+    if (insertError || !inserted) return NextResponse.json({ ok: false, reason: "Could not record the nomination." }, { status: 500 });
+    candidateId = inserted.id;
   }
 
   // Nominations aren't anonymous (unlike votes) — the historical paper
   // form always identified the nominator, and the Council needs to know
   // who nominated whom to review legitimacy.
+  //
+  // target_id is the candidates.id row this nomination actually affected
+  // (not candidatePersonId, a people.id) — target_table already says
+  // "candidates", so target_id must resolve within that table or the log
+  // entry can't be traced back to the real record. candidatePersonId is
+  // still recorded in details for readability.
   await admin.from("audit_log").insert({
     actor_id: nominator.id,
     action: "nomination_submitted",
     target_table: "candidates",
-    target_id: candidatePersonId,
-    details: { election_id: electionId, category, nominated_by: nominator.id },
+    target_id: candidateId,
+    details: { election_id: electionId, category, nominated_by: nominator.id, candidate_person_id: candidatePersonId },
   });
 
   return NextResponse.json({ ok: true });

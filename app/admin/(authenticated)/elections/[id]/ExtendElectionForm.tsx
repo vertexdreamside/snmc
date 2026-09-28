@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Clock } from "lucide-react";
+import { formatSeychellesTime } from "@/lib/reports";
 
 export function ExtendElectionForm({ electionId, field, label, currentClosing }: { electionId: string; field: "round1_close_at" | "round2_close_at"; label: string; currentClosing: string | null }) {
   const router = useRouter();
@@ -36,7 +37,7 @@ export function ExtendElectionForm({ electionId, field, label, currentClosing }:
     <div className="font-body text-sm">
       <div className="flex items-center gap-2 text-council-ink/70">
         <Clock size={14} className="text-council-ink/40" aria-hidden="true" />
-        <span>{label}: {currentClosing ? new Date(currentClosing).toLocaleString() : "Not set"}</span>
+        <span>{label}: {currentClosing ? formatSeychellesTime(currentClosing) : "Not set"}</span>
         <button onClick={() => setOpen(!open)} className="text-council-cyan underline text-xs">{open ? "Cancel" : "Extend"}</button>
       </div>
       {open && (

@@ -1,4 +1,5 @@
 import { History } from "lucide-react";
+import { formatSeychellesTime } from "@/lib/reports";
 
 interface HistoryEntry {
   id: string;
@@ -61,7 +62,7 @@ export function HistorySection({ entries, canSeeNin }: { entries: HistoryEntry[]
                 <p className="font-body text-sm text-council-navy">
                   {ACTION_LABELS[entry.action] ?? entry.action}
                 </p>
-                <p className="font-body text-xs text-council-ink/40">{new Date(entry.created_at).toLocaleString()}</p>
+                <p className="font-body text-xs text-council-ink/40">{formatSeychellesTime(entry.created_at)}</p>
                 {changes && Object.keys(changes).length > 0 && (
                   <div className="mt-1 space-y-0.5">
                     {Object.entries(changes).map(([field, { from, to }]) => {

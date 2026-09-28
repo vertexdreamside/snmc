@@ -7,6 +7,7 @@ import { categoryDisplay } from "@/lib/licenses";
 import { canManageRegister } from "@/lib/auth/permissions";
 import { LicenceDetailsSection } from "./LicenceDetailsSection";
 import { HistorySection } from "./HistorySection";
+import { formatSeychellesTime } from "@/lib/reports";
 
 // Reorganized per Section 7: Profile Summary, Personal Details,
 // Professional Details, and a unified Licence Details table (Nurse,
@@ -162,8 +163,8 @@ export default async function PersonDetailPage({ params: paramsPromise }: { para
                   </span>
                 </p>
                 <p className="text-xs text-council-ink/40">
-                  Submitted {new Date(r.submitted_at).toLocaleDateString()}
-                  {r.reviewed_at && ` · Reviewed ${new Date(r.reviewed_at).toLocaleDateString()}`}
+                  Submitted {formatSeychellesTime(r.submitted_at)}
+                  {r.reviewed_at && ` · Reviewed ${formatSeychellesTime(r.reviewed_at)}`}
                   {r.review_comment && ` · "${r.review_comment}"`}
                 </p>
               </li>
@@ -185,8 +186,8 @@ export default async function PersonDetailPage({ params: paramsPromise }: { para
                   </span>
                 </p>
                 <p className="text-xs text-council-ink/40">
-                  Reason: {r.reason} · Submitted {new Date(r.submitted_at).toLocaleDateString()}
-                  {r.reviewed_at && ` · Reviewed ${new Date(r.reviewed_at).toLocaleDateString()}`}
+                  Reason: {r.reason} · Submitted {formatSeychellesTime(r.submitted_at)}
+                  {r.reviewed_at && ` · Reviewed ${formatSeychellesTime(r.reviewed_at)}`}
                   {r.review_comment && ` · "${r.review_comment}"`}
                 </p>
               </li>
