@@ -23,6 +23,7 @@ export function ElectionControls({
   approvalStatus,
   round1CloseAt,
   round2CloseAt,
+  liveResultsVisible,
 }: {
   electionId: string;
   status: string;
@@ -30,6 +31,7 @@ export function ElectionControls({
   approvalStatus: string;
   round1CloseAt: string | null;
   round2CloseAt: string | null;
+  liveResultsVisible: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -55,6 +57,17 @@ export function ElectionControls({
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: newStatus }),
+    });
+    setBusy(false);
+    router.refresh();
+  }
+
+  async function toggleLiveResults() {
+    setBusy(true);
+    await fetch(`/api/admin/elections/${electionId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ liveResultsVisible: !liveResultsVisible }),
     });
     setBusy(false);
     router.refresh();
@@ -121,6 +134,16 @@ export function ElectionControls({
           className="border border-council-navy/20 font-body text-sm font-medium rounded-card px-4 py-2 disabled:opacity-40"
         >
           {resultsPublished ? "Unpublish Results" : "Publish Results"}
+        </button>
+        <button
+          onClick={toggleLiveResults}
+          disabled={busy}
+          title="Shows/hides per-candidate vote counts on the Live Election Monitor below, while voting is still open. Voters never see this — it only affects what admins see here."
+          className={`border font-body text-sm font-medium rounded-card px-4 py-2 disabled:opacity-60 ${
+            liveResultsVisible ? "border-council-cyan bg-council-cyan/10 text-council-navy" : "border-council-navy/20 text-council-ink/70"
+          }`}
+        >
+          {liveResultsVisible ? "Hide Live Per-Candidate Results" : "Show Live Per-Candidate Results"}
         </button>
       </div>
       {!resultsPublished && approvalStatus !== "Approved" && (

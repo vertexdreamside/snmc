@@ -93,6 +93,7 @@ export default async function ElectionDetailPage({ params: paramsPromise }: { pa
           approvalStatus={election.approval_status}
           round1CloseAt={election.round1_close_at}
           round2CloseAt={election.round2_close_at}
+          liveResultsVisible={election.live_results_visible}
         />
         <div className="pt-4 border-t border-council-navy/10 space-y-2">
           <ExtendElectionForm electionId={election.id} field="round1_close_at" label="Nomination closes" currentClosing={election.round1_close_at} />

@@ -16,6 +16,7 @@ const updateSchema = z.object({
   status: z.enum(ELECTION_STATUSES).optional(),
   resultsPublished: z.boolean().optional(),
   certificationText: z.string().optional(),
+  liveResultsVisible: z.boolean().optional(),
 });
 
 export async function PATCH(request: Request, { params: paramsPromise }: { params: Promise<{ id: string }> }) {
@@ -73,6 +74,9 @@ export async function PATCH(request: Request, { params: paramsPromise }: { param
     }
   }
   if (parsed.data.resultsPublished !== undefined) update.results_published = parsed.data.resultsPublished;
+  // Per-candidate live tallies (Live Election Monitor) — separate from,
+  // and never gating, what voters see (that's results_published only).
+  if (parsed.data.liveResultsVisible !== undefined) update.live_results_visible = parsed.data.liveResultsVisible;
 
   const { error } = await supabase.from("elections").update(update).eq("id", params.id);
   if (error) {
@@ -84,6 +88,8 @@ export async function PATCH(request: Request, { params: paramsPromise }: { param
     action:
       parsed.data.resultsPublished === true
         ? "admin_certified_and_published_results"
+        : parsed.data.liveResultsVisible !== undefined
+        ? "admin_toggled_live_results_visible"
         : "admin_updated_election",
     target_table: "elections",
     target_id: params.id,
