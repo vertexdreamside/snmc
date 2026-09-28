@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AlertTriangle, Clock, CheckCircle2 } from "lucide-react";
+import { expiryCutoffInstant } from "@/lib/reports";
 
 interface Row {
   id: string;
@@ -34,11 +35,18 @@ function bucketFor(days: number): Bucket {
 
 export function LicenseExpiryClient({ rows }: { rows: Row[] }) {
   const [selected, setSelected] = useState<Bucket | null>(null);
-  const today = new Date();
 
+  // Was: new Date(r.expiryDate).getTime() - today.getTime(), which parses
+  // a date-only string (e.g. "2026-09-28") as UTC midnight — 4am in
+  // Seychelles (UTC+4, no DST) — and so flagged a licence "Expired" up to
+  // ~20 hours before that calendar day had actually finished locally. Same
+  // bug class as lib/reports.ts's computeLicenseStatus (fixed separately,
+  // since this page has always used its own independent day-bucket logic
+  // rather than that shared helper); now uses the same Seychelles
+  // end-of-day cutoff so the two don't drift back out of sync.
   const withDays = rows.map((r) => ({
     ...r,
-    days: Math.floor((new Date(r.expiryDate).getTime() - today.getTime()) / (1000 * 60 * 60 * 24)),
+    days: Math.floor((expiryCutoffInstant(r.expiryDate) - Date.now()) / (1000 * 60 * 60 * 24)),
   }));
   const withBucket = withDays.map((r) => ({ ...r, bucket: bucketFor(r.days) }));
 

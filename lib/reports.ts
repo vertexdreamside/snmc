@@ -100,7 +100,7 @@ const LICENSE_WARNING_WINDOW_DAYS = 90;
 // 2026-09-28T20:00:00Z (Seychelles local midnight beginning the next
 // day). This computes that real cutoff instant instead of using the
 // raw UTC-midnight parse.
-function expiryCutoffInstant(dateOnly: string): number {
+export function expiryCutoffInstant(dateOnly: string): number {
   return new Date(dateOnly).getTime() + 20 * 60 * 60 * 1000;
 }
 
