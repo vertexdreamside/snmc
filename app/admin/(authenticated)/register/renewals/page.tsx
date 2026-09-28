@@ -22,19 +22,24 @@ export default async function LicenseRenewalsPage() {
         </p>
       </div>
       <div className="space-y-3">
-        {(renewals ?? []).map((r: any) => (
-          <RenewalRow
-            key={r.id}
-            renewalId={r.id}
-            personName={`${r.people?.first_name ?? ""} ${r.people?.last_name ?? ""}`}
-            regNo={r.people?.nurse_reg_no || r.people?.midwife_reg_no || "—"}
-            licenseType={r.license_type}
-            previousExpiry={r.previous_expiry_date}
-            requestedExpiry={r.requested_expiry_date}
-            documentId={r.supporting_document_id}
-            status={r.status}
-          />
-        ))}
+        {(renewals ?? []).map((r: any) => {
+          // Guard against Supabase's embedded join coming back as an
+          // array — see the fix in the portal vote page for why.
+          const p = Array.isArray(r.people) ? r.people[0] : r.people;
+          return (
+            <RenewalRow
+              key={r.id}
+              renewalId={r.id}
+              personName={`${p?.first_name ?? ""} ${p?.last_name ?? ""}`}
+              regNo={p?.nurse_reg_no || p?.midwife_reg_no || "—"}
+              licenseType={r.license_type}
+              previousExpiry={r.previous_expiry_date}
+              requestedExpiry={r.requested_expiry_date}
+              documentId={r.supporting_document_id}
+              status={r.status}
+            />
+          );
+        })}
         {(!renewals || renewals.length === 0) && (
           <div className="bg-white rounded-card border border-council-navy/10 p-8 text-center">
             <p className="font-body text-sm text-council-ink/50">No renewal requests pending.</p>

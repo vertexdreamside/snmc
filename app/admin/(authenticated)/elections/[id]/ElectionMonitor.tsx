@@ -38,7 +38,13 @@ export async function ElectionMonitor({ election }: { election: { id: string; st
             .from("candidates").select("id, people:person_id(first_name, last_name)")
             .in("id", Array.from(counts.keys()));
           tallies = (candidates ?? [])
-            .map((c: any) => ({ name: `${c.people?.first_name ?? ""} ${c.people?.last_name ?? ""}`, count: counts.get(c.id) ?? 0 }))
+            .map((c: any) => {
+              // See the fix in the portal vote page for why this guard is
+              // needed — Supabase's embedded join can come back as an
+              // array, and without this every name here was blank.
+              const p = Array.isArray(c.people) ? c.people[0] : c.people;
+              return { name: `${p?.first_name ?? ""} ${p?.last_name ?? ""}`, count: counts.get(c.id) ?? 0 };
+            })
             .sort((a, b) => b.count - a.count);
         }
       }

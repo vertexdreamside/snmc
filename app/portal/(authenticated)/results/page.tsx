@@ -52,14 +52,19 @@ export default async function PortalResultsPage() {
             <h2 className="font-display text-lg text-council-navy mb-3">{election.term_label}</h2>
             {elected.length > 0 ? (
               <ul className="font-body text-sm divide-y divide-council-navy/10">
-                {elected.map((c: any, i: number) => (
-                  <li key={i} className="py-2 flex justify-between">
-                    <span>
-                      {c.people?.first_name} {c.people?.last_name}
-                    </span>
-                    <span className="text-council-ink/60">{c.category}</span>
-                  </li>
-                ))}
+                {elected.map((c: any, i: number) => {
+                  // Guard against Supabase's embedded join coming back as
+                  // an array — see the fix in the portal vote page for why.
+                  const p = Array.isArray(c.people) ? c.people[0] : c.people;
+                  return (
+                    <li key={i} className="py-2 flex justify-between">
+                      <span>
+                        {p?.first_name} {p?.last_name}
+                      </span>
+                      <span className="text-council-ink/60">{c.category}</span>
+                    </li>
+                  );
+                })}
               </ul>
             ) : (
               <p className="font-body text-sm text-council-ink/50">Published, but no candidates are marked "Elected" yet.</p>

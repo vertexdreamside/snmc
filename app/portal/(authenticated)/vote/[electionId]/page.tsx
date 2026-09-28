@@ -91,12 +91,23 @@ export default async function VotePage({ params: paramsPromise }: { params: Prom
 
       const candidates = (data ?? [])
         .filter((c: any) => serviceCategoryMatches(person.service_category, c.service_category))
-        .map((c: any) => ({
-          id: c.id,
-          first_name: c.people?.first_name ?? "",
-          last_name: c.people?.last_name ?? "",
-          service_category: c.service_category,
-        }));
+        .map((c: any) => {
+          // Supabase's embedded-resource join can come back as a single
+          // object OR an array depending on how the relationship
+          // resolves — the admin election page already guards against
+          // this (see app/admin/(authenticated)/elections/[id]/page.tsx).
+          // This page never had that guard, which is why every candidate
+          // on the actual ballot was silently showing with a blank name:
+          // c.people was an array here, so c.people?.first_name was
+          // always undefined.
+          const p = Array.isArray(c.people) ? c.people[0] : c.people;
+          return {
+            id: c.id,
+            first_name: p?.first_name ?? "",
+            last_name: p?.last_name ?? "",
+            service_category: c.service_category,
+          };
+        });
 
       return { category, candidates };
     })

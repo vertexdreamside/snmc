@@ -81,11 +81,17 @@ export default async function CouncilHome() {
                 <p className="font-body text-sm font-medium text-council-navy mb-1">{election.term_label}</p>
                 {elected.length > 0 ? (
                   <ul className="font-body text-sm text-council-ink/70 space-y-1 pl-3">
-                    {elected.map((c: any, i: number) => (
-                      <li key={i}>
-                        {c.people?.first_name} {c.people?.last_name} — {c.category}
-                      </li>
-                    ))}
+                    {elected.map((c: any, i: number) => {
+                      // Guard against Supabase's embedded join coming back
+                      // as an array — see the fix in the portal vote page
+                      // for why this is needed.
+                      const p = Array.isArray(c.people) ? c.people[0] : c.people;
+                      return (
+                        <li key={i}>
+                          {p?.first_name} {p?.last_name} — {c.category}
+                        </li>
+                      );
+                    })}
                   </ul>
                 ) : (
                   <p className="font-body text-sm text-council-ink/50 pl-3">
