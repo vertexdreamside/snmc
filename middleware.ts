@@ -40,8 +40,27 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
+  // BUG FIX: this used to redirect away from /admin/login for ANY logged-in
+  // Supabase user, not specifically an admin. A Nurse/Midwife (or
+  // Councillor) signed in on the SAME browser — an ordinary thing to
+  // happen, e.g. someone testing both portals, or a shared computer —
+  // would get bounced from /admin/login to /admin, only to have the
+  // dashboard's own requireAdmin() check correctly reject them (they're
+  // not in admin_users) and send them right back to /admin/login, which
+  // this middleware would then immediately bounce to /admin again —
+  // an infinite redirect loop, with no error ever shown, just a blank
+  // page and the server getting hammered with requests. Now it actually
+  // checks admin_users (and is_disabled) before deciding the user
+  // shouldn't see the login page.
   if (isLoginPath && user) {
-    return NextResponse.redirect(new URL("/admin", request.url));
+    const { data: admin } = await supabase
+      .from("admin_users")
+      .select("is_disabled")
+      .eq("auth_user_id", user.id)
+      .maybeSingle();
+    if (admin && !admin.is_disabled) {
+      return NextResponse.redirect(new URL("/admin", request.url));
+    }
   }
 
   return response;
