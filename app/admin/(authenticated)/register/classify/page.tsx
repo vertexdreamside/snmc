@@ -1,7 +1,7 @@
 import { requireAdmin } from "@/lib/auth/guards";
 import { createClient } from "@/lib/supabase/server";
 import { ClassifyTable } from "./ClassifyTable";
-import { ilikeAnywhere } from "@/lib/search";
+import { searchPersonIds, NO_MATCH_ID } from "@/lib/search";
 
 export default async function ClassifyPage({ searchParams: searchParamsPromise }: { searchParams: Promise<{ q?: string; docStatus?: string }> }) {
   const searchParams = await searchParamsPromise;
@@ -16,11 +16,17 @@ export default async function ClassifyPage({ searchParams: searchParamsPromise }
     .limit(500);
 
   if (searchParams.q) {
-    // See lib/search.ts — an unescaped comma or parenthesis in the typed
-    // search text corrupts this .or() filter and silently returns zero
-    // matches for a real, exact name.
-    const q = ilikeAnywhere(searchParams.q);
-    query = query.or(`first_name.ilike.${q},last_name.ilike.${q},nurse_reg_no.ilike.${q},midwife_reg_no.ilike.${q}`);
+    // See lib/search.ts — a hand-assembled .or() filter string broke on a
+    // literal comma typed into the search box even after PostgREST's
+    // documented escaping, so this runs one plain per-column filter and
+    // merges the matching ids instead.
+    const ids = await searchPersonIds(supabase, searchParams.q, [
+      "first_name",
+      "last_name",
+      "nurse_reg_no",
+      "midwife_reg_no",
+    ]);
+    query = query.in("id", ids.length ? ids : [NO_MATCH_ID]);
   }
 
   const { data: rawPeople } = await query;

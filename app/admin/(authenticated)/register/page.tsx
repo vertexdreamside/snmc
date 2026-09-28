@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/auth/guards";
 import { createClient } from "@/lib/supabase/server";
 import { ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
-import { ilikeAnywhere } from "@/lib/search";
+import { searchPersonIds, NO_MATCH_ID } from "@/lib/search";
 
 const STATUS_OPTIONS = ["Practising", "Not Practising", "Retired", "Abroad", "Deceased", "Deleted", "Unknown"];
 const PROFILE_STATUS_OPTIONS = ["Approved", "Pending Review", "Rejected"];
@@ -37,15 +37,19 @@ export default async function AdminRegisterPage({
     .range(from, to);
 
   if (searchParams.q) {
-    // Was interpolated straight into the .or() string unescaped — a
-    // literal comma or parenthesis in the typed search text (several real
-    // names in this register contain commas) corrupted the filter and
-    // silently returned zero matches for an exact, real name. See
-    // lib/search.ts for the confirmed-live repro and the fix.
-    const q = ilikeAnywhere(searchParams.q);
-    query = query.or(
-      `first_name.ilike.${q},last_name.ilike.${q},nurse_reg_no.ilike.${q},midwife_reg_no.ilike.${q}`
-    );
+    // Two earlier attempts built this as a single hand-assembled .or()
+    // string (interpolated unescaped, then PostgREST-double-quote-escaped)
+    // and both still broke on a literal comma typed into the search box —
+    // several real names in this register contain commas. See
+    // lib/search.ts for the confirmed-live repro and why this now runs one
+    // plain per-column filter and merges the matching ids instead.
+    const ids = await searchPersonIds(supabase, searchParams.q, [
+      "first_name",
+      "last_name",
+      "nurse_reg_no",
+      "midwife_reg_no",
+    ]);
+    query = query.in("id", ids.length ? ids : [NO_MATCH_ID]);
   }
   if (searchParams.status) {
     query = query.eq("registration_status", searchParams.status);

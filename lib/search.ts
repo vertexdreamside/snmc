@@ -1,33 +1,38 @@
-// PostgREST's filter mini-language treats comma, period, colon, and
-// parentheses as structural characters: a comma separates the conditions
-// inside an `.or(...)` string, and parentheses group an operator's
-// argument list. Several of this app's free-text search boxes build one
-// `.or()` string by interpolating the person's typed search text directly
-// into it, to match against first/last name and reg. no. in a single
-// OR'd condition — so a comma or parenthesis actually typed by the admin
-// (not a special syntax they intended) corrupts the filter instead of
-// being matched literally.
+// Building a single "or=(...)" combinator string by hand for a
+// multi-column free-text search is fragile: PostgREST treats comma and
+// parentheses as structural inside that specific string (comma separates
+// conditions, parentheses group an operator's arguments). Two live
+// attempts at escaping around that — first backslash-escaping the
+// reserved characters, then PostgREST's own documented double-quote
+// wrapping for reserved characters in a value — both still broke on a
+// literal comma actually typed into the search box (confirmed live both
+// times: searching for "Nathasha, Josephine", an exact real name on
+// file, kept returning zero results or an outright query error).
 //
-// Confirmed live: searching the register for "Nathasha, Josephine" — an
-// exact, verbatim match of a real person's first name on file — returned
-// zero results, because the embedded comma split the `.or()` string into
-// extra malformed conditions. Several names in this register legitimately
-// contain commas (e.g. "Jessy, Una", "Marcia, and Erica Dorby"), so this
-// wasn't a hypothetical edge case.
-//
-// PostgREST's documented way to include a reserved character literally in
-// a filter value is to wrap the WHOLE value in double quotes (see
-// https://docs.postgrest.org/en/v12/references/api/url_grammar.html and
-// https://github.com/PostgREST/postgrest/discussions/3466), escaping any
-// backslash or embedded double-quote within it — an earlier version of
-// this helper instead backslash-escaped the reserved characters directly,
-// which is NOT how PostgREST's grammar actually treats them and did not
-// fix the bug (confirmed live: the exact repro above still returned zero
-// results with that version deployed). This produces the full
-// double-quoted `%...%` ilike pattern ready to drop straight after
-// `.ilike.` in the filter string — callers no longer add their own `%`
-// wildcards, since this returns them already included.
-export function ilikeAnywhere(term: string): string {
-  const escaped = term.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-  return `"%${escaped}%"`;
+// Rather than keep guessing at combinator-string escaping rules that
+// aren't fully documented, this sidesteps the problem entirely. A plain,
+// single-column filter like `.ilike(column, pattern)` is NOT a combinator
+// string — it's one ordinary "key=value" query parameter, where a comma
+// in the value is just a character like any other, with no escaping
+// question at all. So instead of one OR'd multi-column string, this runs
+// one ILIKE query per searchable column, takes the union of matching ids,
+// and hands that back for the caller to apply as `.in("id", ids)`
+// alongside whatever pagination/ordering/other filters it already has.
+export async function searchPersonIds(
+  supabase: { from(table: "people"): { select(cols: "id"): { ilike(column: string, pattern: string): PromiseLike<{ data: { id: string }[] | null; error: unknown }> } } },
+  term: string,
+  columns: string[]
+): Promise<string[]> {
+  const pattern = `%${term}%`;
+  const results = await Promise.all(columns.map((col) => supabase.from("people").select("id").ilike(col, pattern)));
+  const ids = new Set<string>();
+  for (const { data } of results) {
+    for (const row of data ?? []) ids.add(row.id);
+  }
+  return Array.from(ids);
 }
+
+// A UUID that will never match a real row — used so `.in("id", [...])`
+// with zero real matches reliably returns zero rows instead of needing
+// special-case handling for an empty array at every call site.
+export const NO_MATCH_ID = "00000000-0000-0000-0000-000000000000";
