@@ -23,7 +23,7 @@ export default async function ElectionDetailPage({ params: paramsPromise }: { pa
 
   const { data: election } = await supabase
     .from("elections")
-    .select("id, term_label, status, results_published, live_results_visible, round1_open_at, round1_close_at, round2_open_at, round2_close_at, approval_status, approved_by, approved_at, approval_reference, approval_notes")
+    .select("id, term_label, status, results_published, live_results_visible, round1_open_at, round1_close_at, round2_open_at, round2_close_at, approval_status, approved_by, approved_at, approval_reference, approval_notes, approval_document_path")
     .eq("id", params.id)
     .single();
 
@@ -124,6 +124,7 @@ export default async function ElectionDetailPage({ params: paramsPromise }: { pa
             approvalReference={election.approval_reference}
             approvalNotes={election.approval_notes}
             hasUnresolvedDisputes={(disputes ?? []).some((d: any) => d.status !== "Resolved")}
+            approvalDocumentPath={election.approval_document_path}
           />
         </>
       )}
