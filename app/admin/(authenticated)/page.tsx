@@ -231,8 +231,15 @@ export default async function AdminDashboard() {
                     <StatRow icon={Users} label="Active Professionals" value={activeCount} href="/admin/register" />
                     <StatRow icon={AlertTriangle} label="Inactive Nurses" value={inactiveNurseCount} href="/admin/register" />
                     <StatRow icon={AlertTriangle} label="Inactive Midwives" value={inactiveMidwifeCount} href="/admin/register" />
-                    <StatRow icon={Clock} label="Licences Expiring Soon" value={expiringSoonCount} href="/admin/register/license-expiry" />
-                    <StatRow icon={FileX} label="Expired Licences" value={expiredLicenceCount} href="/admin/register/license-expiry" />
+                    {/* Labeled per-person deliberately — this tile counts each
+                        PERSON once (by whichever of their licences expires
+                        soonest) and excludes Special Licences, so it will
+                        never match the per-licence-row count on the linked
+                        page. A plain "Expired Licences" label read as if the
+                        two numbers should agree; this makes clear what's
+                        actually being counted. See INC-014. */}
+                    <StatRow icon={Clock} label="Professionals with a Licence Expiring Soon" value={expiringSoonCount} href="/admin/register/license-expiry" />
+                    <StatRow icon={FileX} label="Professionals with an Expired Licence" value={expiredLicenceCount} href="/admin/register/license-expiry" />
                     <StatRow icon={ClipboardCheck} label="Pending Approvals" value={pendingReview ?? 0} href="/admin/register/pending" />
                     <StatRow icon={RefreshCw} label="Pending Renewals" value={pendingRenewals ?? 0} href="/admin/register/renewals" />
                     <StatRow icon={UserPlus} label="Renewals This Year" value={renewalsThisYear ?? 0} href="/admin/register/renewals" />
