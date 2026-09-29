@@ -1,12 +1,15 @@
 // Resets an admin/councillor's password DIRECTLY — no email involved at
 // all, per explicit direction: "Do NOT send the reset password through
-// email." Generates a secure temporary password server-side and sets it
-// immediately via Supabase's admin API, which requires no email step
-// and therefore has no email rate limit to hit either. The generated
-// password is returned once, in this response only, for the requesting
-// admin to relay to the account holder directly (in person, a message,
-// whatever the Council actually uses) — never logged anywhere, per
-// "Do not log the actual password."
+// email." By default generates a secure temporary password server-side
+// and sets it immediately via Supabase's admin API, which requires no
+// email step and therefore has no email rate limit to hit either. The
+// admin can also supply their own specific password in the request body
+// (newPassword) instead of getting a random one — added per request:
+// "Let me set the password when... reset password on the platform."
+// Either way the resulting password is returned once, in this response
+// only, for the requesting admin to relay to the account holder directly
+// (in person, a message, whatever the Council actually uses) — never
+// logged anywhere, per "Do not log the actual password."
 
 import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
@@ -26,6 +29,20 @@ export async function POST(request: Request, { params: paramsPromise }: { params
   const actor = await requireAdmin(["users"]);
   const supabase = createServiceRoleClient();
 
+  let requestedPassword: string | undefined;
+  try {
+    const body = await request.json();
+    if (typeof body?.newPassword === "string" && body.newPassword.length > 0) {
+      requestedPassword = body.newPassword;
+    }
+  } catch {
+    // No body (or not JSON) — fine, this endpoint has always worked with
+    // no body at all for the auto-generate case.
+  }
+  if (requestedPassword && requestedPassword.length < 8) {
+    return NextResponse.json({ ok: false, reason: "Password must be at least 8 characters." }, { status: 400 });
+  }
+
   const { data: adminUser, error: lookupError } = await supabase
     .from("admin_users")
     .select("auth_user_id, full_name")
@@ -36,7 +53,7 @@ export async function POST(request: Request, { params: paramsPromise }: { params
     return NextResponse.json({ ok: false, reason: "Admin user not found." }, { status: 404 });
   }
 
-  const tempPassword = generateTempPassword();
+  const tempPassword = requestedPassword ?? generateTempPassword();
   const { error: updateError } = await supabase.auth.admin.updateUserById(adminUser.auth_user_id, { password: tempPassword });
   if (updateError) {
     return NextResponse.json({ ok: false, reason: updateError.message }, { status: 500 });

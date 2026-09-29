@@ -99,6 +99,8 @@ function UserRow({ user, isSelf, onChanged }: { user: AdminUserRow; isSelf: bool
   const [busy, setBusy] = useState<string | null>(null);
   const [resetMessage, setResetMessage] = useState<string | null>(null);
   const [title, setTitle] = useState(user.role ?? "");
+  const [newPasswordInput, setNewPasswordInput] = useState("");
+  const [showPasswordField, setShowPasswordField] = useState(false);
 
   async function patchField(field: string, value: boolean | string) {
     setBusy(field);
@@ -119,14 +121,32 @@ function UserRow({ user, isSelf, onChanged }: { user: AdminUserRow; isSelf: bool
     onChanged();
   }
 
-  async function handleResetPassword() {
-    if (!confirm(`Reset the password for ${user.full_name ?? "this user"}? A new temporary password will be generated — you'll need to share it with them directly.`)) return;
+  async function handleResetPassword(chosenPassword: string) {
+    const usingChosen = chosenPassword.trim().length > 0;
+    if (usingChosen && chosenPassword.trim().length < 8) {
+      setResetMessage("Password must be at least 8 characters.");
+      return;
+    }
+    if (!confirm(
+      usingChosen
+        ? `Set this password for ${user.full_name ?? "this user"}? You'll need to share it with them directly.`
+        : `Reset the password for ${user.full_name ?? "this user"}? A new random password will be generated — you'll need to share it with them directly.`
+    )) return;
     setBusy("reset");
     setResetMessage(null);
-    const res = await fetch(`/api/admin/users/${user.id}/reset-password`, { method: "POST" });
+    const res = await fetch(`/api/admin/users/${user.id}/reset-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(usingChosen ? { newPassword: chosenPassword.trim() } : {}),
+    });
     const data = await res.json();
     setBusy(null);
-    setResetMessage(data.ok ? `New temporary password: ${data.tempPassword} — share this with them directly. It won't be shown again.` : data.reason ?? "Could not reset the password.");
+    if (data.ok) {
+      setNewPasswordInput("");
+      setResetMessage(`${usingChosen ? "New password" : "New temporary password"}: ${data.tempPassword} — share this with them directly. It won't be shown again.`);
+    } else {
+      setResetMessage(data.reason ?? "Could not reset the password.");
+    }
   }
 
   return (
@@ -173,9 +193,34 @@ function UserRow({ user, isSelf, onChanged }: { user: AdminUserRow; isSelf: bool
       </td>
       <td className="px-4 py-3">
         <div className="flex flex-col gap-1 items-start">
-          <button onClick={handleResetPassword} disabled={busy !== null} className="text-council-navy text-xs font-body underline disabled:opacity-60">
-            Reset Password
-          </button>
+          {showPasswordField ? (
+            <div className="flex flex-col gap-1 w-full min-w-[9rem]">
+              <input
+                type="text"
+                value={newPasswordInput}
+                onChange={(e) => setNewPasswordInput(e.target.value)}
+                placeholder="New password (8+ chars)"
+                className="text-xs border border-council-navy/20 rounded-card px-2 py-1 w-full"
+              />
+              <div className="flex gap-2">
+                <button onClick={() => handleResetPassword(newPasswordInput)} disabled={busy !== null} className="text-council-navy text-xs font-body underline disabled:opacity-60">
+                  {busy === "reset" ? "Setting…" : "Set Password"}
+                </button>
+                <button onClick={() => { setShowPasswordField(false); setNewPasswordInput(""); }} className="text-council-ink/50 text-xs font-body underline">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <button onClick={() => setShowPasswordField(true)} disabled={busy !== null} className="text-council-navy text-xs font-body underline disabled:opacity-60">
+                Set Password
+              </button>
+              <button onClick={() => handleResetPassword("")} disabled={busy !== null} className="text-council-navy text-xs font-body underline disabled:opacity-60">
+                {busy === "reset" ? "Resetting…" : "Random Reset"}
+              </button>
+            </div>
+          )}
           {!isSelf && (
             <button
               onClick={() => patchField("is_disabled", !user.is_disabled)}
@@ -213,6 +258,11 @@ function AddUserForm({ onDone }: { onDone: () => void }) {
   const [message, setMessage] = useState<string | null>(null);
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  // Two account-setup modes: the existing secure-link flow (person sets
+  // their own password), or an admin-chosen password set immediately —
+  // per request: "Let me set the password when I am creating new user."
+  const [setPasswordNow, setSetPasswordNow] = useState(false);
+  const [password, setPassword] = useState("");
 
   function togglePermission(key: keyof typeof permissions) {
     setPermissions((p) => ({ ...p, [key]: !p[key] }));
@@ -227,24 +277,34 @@ function AddUserForm({ onDone }: { onDone: () => void }) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (setPasswordNow && password.length < 8) {
+      setMessage("Password must be at least 8 characters.");
+      return;
+    }
     setBusy(true);
     setMessage(null);
     setInviteLink(null);
     const res = await fetch("/api/admin/users", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, fullName, title, phone, userType, ...permissions }),
+      body: JSON.stringify({ email, fullName, title, phone, userType, ...permissions, password: setPasswordNow ? password : "" }),
     });
     const data = await res.json();
     setBusy(false);
     if (data.ok) {
-      setMessage(`Account created for ${email}. Copy the link below and share it with them to set up their account — no email was sent automatically.`);
+      setMessage(
+        data.passwordSet
+          ? `Account created for ${email} with the password you set. Share it with them directly — it won't be shown again.`
+          : `Account created for ${email}. Copy the link below and share it with them to set up their account — no email was sent automatically.`
+      );
       setInviteLink(data.inviteLink ?? null);
       setEmail("");
       setFullName("");
       setTitle("");
       setPhone("");
       setUserType("Admin");
+      setSetPasswordNow(false);
+      setPassword("");
       setPermissions({
         canViewReports: false,
         canManageRegister: false,
@@ -288,11 +348,33 @@ function AddUserForm({ onDone }: { onDone: () => void }) {
         />
       </div>
 
+      <div className="bg-council-cream rounded-card p-3 space-y-2">
+        <div className="flex flex-wrap gap-4">
+          <label className="flex items-center gap-2 font-body text-sm">
+            <input type="radio" checked={!setPasswordNow} onChange={() => setSetPasswordNow(false)} className="accent-council-navy" />
+            Send a secure setup link (they choose their own password)
+          </label>
+          <label className="flex items-center gap-2 font-body text-sm">
+            <input type="radio" checked={setPasswordNow} onChange={() => setSetPasswordNow(true)} className="accent-council-navy" />
+            Set the password myself
+          </label>
+        </div>
+        {setPasswordNow && (
+          <input
+            type="text"
+            required
+            placeholder="Password (8+ characters)"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full sm:w-64 border border-council-navy/20 rounded-card px-3 py-2 font-body text-sm focus:outline-none focus:ring-2 focus:ring-council-cyan"
+          />
+        )}
+      </div>
+
       <div>
         <p className="font-body text-xs text-council-ink/60 mb-2">
           Define this person's privileges — tick whichever combination fits, or grant Full Access for
-          unrestricted control. You don't need to set or manage a password — they'll receive a secure link to
-          set one up themselves.
+          unrestricted control.
         </p>
         <div className="flex flex-wrap gap-4">
           <label className="flex items-center gap-2 font-body text-sm">

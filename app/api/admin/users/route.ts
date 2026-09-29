@@ -31,6 +31,10 @@ const createUserSchema = z.object({
   canManageElections: z.boolean().default(false),
   canManageAdminUsers: z.boolean().default(false),
   fullAccess: z.boolean().default(false),
+  // Optional — the admin can type a specific password for this person up
+  // front instead of relying on the secure-link flow below. Left blank,
+  // this behaves exactly as before (invite link, no password set yet).
+  password: z.string().min(8, "Password must be at least 8 characters").optional().or(z.literal("")),
 });
 
 export async function POST(request: Request) {
@@ -45,19 +49,43 @@ export async function POST(request: Request) {
   const supabase = createServiceRoleClient();
   const siteOrigin = new URL(request.url).origin;
 
-  const { data: linked, error: linkError } = await supabase.auth.admin.generateLink({
-    type: "invite",
-    email: data.email,
-    options: { redirectTo: `${siteOrigin}/auth/callback?next=${encodeURIComponent("/admin")}` },
-  });
-  if (linkError || !linked?.user) {
-    return NextResponse.json({ ok: false, reason: linkError?.message ?? "Could not create the account." }, { status: 500 });
+  let authUserId: string;
+  let inviteLink: string | null = null;
+
+  if (data.password) {
+    // Admin set a password directly — create the account with it already
+    // active (email_confirm: true skips Supabase's own confirmation-email
+    // step, which we don't use anywhere in this flow), so the person can
+    // sign in immediately with the password the admin gives them.
+    const { data: createdAuthUser, error: createError } = await supabase.auth.admin.createUser({
+      email: data.email,
+      password: data.password,
+      email_confirm: true,
+    });
+    if (createError || !createdAuthUser?.user) {
+      return NextResponse.json({ ok: false, reason: createError?.message ?? "Could not create the account." }, { status: 500 });
+    }
+    authUserId = createdAuthUser.user.id;
+  } else {
+    // No password given — fall back to the existing secure-link flow (see
+    // the comment at the top of this file for why generateLink, not
+    // inviteUserByEmail).
+    const { data: linked, error: linkError } = await supabase.auth.admin.generateLink({
+      type: "invite",
+      email: data.email,
+      options: { redirectTo: `${siteOrigin}/auth/callback?next=${encodeURIComponent("/admin")}` },
+    });
+    if (linkError || !linked?.user) {
+      return NextResponse.json({ ok: false, reason: linkError?.message ?? "Could not create the account." }, { status: 500 });
+    }
+    authUserId = linked.user.id;
+    inviteLink = linked.properties?.action_link ?? null;
   }
 
   const { data: created, error } = await supabase
     .from("admin_users")
     .insert({
-      auth_user_id: linked.user.id,
+      auth_user_id: authUserId,
       full_name: data.fullName,
       role: data.title || null,
       phone: data.phone || null,
@@ -83,5 +111,5 @@ export async function POST(request: Request) {
     details: { email: data.email, user_type: data.userType },
   });
 
-  return NextResponse.json({ ok: true, id: created.id, inviteLink: linked.properties?.action_link ?? null });
+  return NextResponse.json({ ok: true, id: created.id, inviteLink, passwordSet: !!data.password });
 }
