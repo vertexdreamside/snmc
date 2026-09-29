@@ -37,6 +37,7 @@ export default async function LicenseRenewalsPage() {
               requestedExpiry={r.requested_expiry_date}
               documentId={r.supporting_document_id}
               status={r.status}
+              submittedAt={r.submitted_at}
             />
           );
         })}

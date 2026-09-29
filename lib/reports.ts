@@ -149,3 +149,19 @@ export function formatSeychellesTime(dateStr: string | null): string {
     hour12: false,
   }) + " SCT";
 }
+
+// Dashboard "Good morning/afternoon/evening" greeting — was hardcoded to
+// always say "Good morning" regardless of actual time of day, and even
+// once time-aware, computing it from the server's own clock (UTC on
+// Vercel) rather than Seychelles time would still get it wrong for a
+// meaningful chunk of the day (e.g. server-UTC 16:00 is Seychelles
+// 20:00 — evening, not afternoon). Uses the same Indian/Mahe IANA zone
+// as formatSeychellesTime for consistency.
+export function seychellesGreeting(): string {
+  const hour = Number(
+    new Intl.DateTimeFormat("en-GB", { timeZone: "Indian/Mahe", hour: "2-digit", hour12: false }).format(new Date())
+  );
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+}

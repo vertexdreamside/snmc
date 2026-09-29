@@ -7,7 +7,7 @@ import {
   UserPlus2, Search, RefreshCw, FileText, BarChart3, Download, ArrowRight,
 } from "lucide-react";
 import { canManageRegister, canManageElections, isReportingOnly } from "@/lib/auth/permissions";
-import { computeAgeGroup, computeLicenseStatus, AGE_GROUPS } from "@/lib/reports";
+import { computeAgeGroup, computeLicenseStatus, AGE_GROUPS, seychellesGreeting } from "@/lib/reports";
 import { getPendingNotifications } from "@/lib/notifications/getPendingNotifications";
 import { NotificationsPanel } from "./NotificationsPanel";
 import { fetchAllRows } from "@/lib/supabase/paginate";
@@ -166,7 +166,7 @@ export default async function AdminDashboard() {
   return (
     <div className="space-y-6 max-w-6xl">
       <div>
-        <h2 className="font-display text-xl text-council-navy">Good morning, {admin.full_name?.split(" ")[0] ?? "there"}</h2>
+        <h2 className="font-display text-xl text-council-navy">{seychellesGreeting()}, {admin.full_name?.split(" ")[0] ?? "there"}</h2>
         <p className="font-body text-sm text-council-ink/50">Here's what needs your attention today.</p>
       </div>
 

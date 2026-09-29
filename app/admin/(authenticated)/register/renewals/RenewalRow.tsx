@@ -3,12 +3,22 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { FileText } from "lucide-react";
+import { formatSeychellesTime } from "@/lib/reports";
 
+// Previously, "Start Review" only flipped the status label to "Under
+// Review" — the Approve/Reject buttons were already visible before and
+// after clicking it, and nothing else about the card changed. That made
+// "review" feel like it did nothing: there was no actual reviewing step,
+// just an immediate decision. Now Approve/Reject only appear once review
+// has actually been started, and starting review surfaces the submission
+// date and the supporting document link more prominently — something
+// concrete to look at before deciding, not just a status toggle.
 export function RenewalRow({
-  renewalId, personName, regNo, licenseType, previousExpiry, requestedExpiry, documentId, status,
+  renewalId, personName, regNo, licenseType, previousExpiry, requestedExpiry, documentId, status, submittedAt,
 }: {
   renewalId: string; personName: string; regNo: string; licenseType: string;
   previousExpiry: string | null; requestedExpiry: string; documentId: string | null; status: "Pending" | "Under Review";
+  submittedAt: string;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -49,38 +59,56 @@ export function RenewalRow({
           <span className="font-body text-xs text-council-ink/50">{regNo}</span>
         </div>
       </div>
-      <p className="font-body text-xs text-council-ink/60 mb-1">{licenseType} Licence renewal</p>
+      <p className="font-body text-xs text-council-ink/60 mb-1">{licenseType} Licence renewal &middot; Submitted {formatSeychellesTime(submittedAt)}</p>
       <p className="font-body text-sm text-council-ink/70 mb-3">
         {previousExpiry ? <span className="line-through text-council-ink/40">{previousExpiry}</span> : "No prior date on file"} → <span className="font-medium text-council-navy">{requestedExpiry}</span>
       </p>
-      {documentId && (
-        <button onClick={handleView} className="flex items-center gap-1 text-xs text-council-cyan underline mb-3">
-          <FileText size={12} aria-hidden="true" /> View supporting document
-        </button>
-      )}
 
-      {pendingAction ? (
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
-            placeholder="Comment (optional)"
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            className="flex-1 text-xs border border-council-navy/20 rounded-card px-2 py-1.5"
-          />
-          <button onClick={() => confirm(pendingAction)} disabled={busy} className={`text-xs rounded-card px-3 py-1.5 text-white disabled:opacity-60 ${pendingAction === "Approved" ? "bg-status-active" : "bg-status-closed"}`}>
-            Confirm {pendingAction}
+      {status === "Pending" ? (
+        <div className="bg-council-cream rounded-card p-3 mb-3">
+          <p className="font-body text-xs text-council-ink/60 mb-2">
+            {documentId
+              ? "Review the supporting document before approving or rejecting this renewal."
+              : "No supporting document was attached to this request."}
+          </p>
+          {documentId && (
+            <button onClick={handleView} className="flex items-center gap-1 text-xs text-council-cyan underline mb-2">
+              <FileText size={12} aria-hidden="true" /> View supporting document
+            </button>
+          )}
+          <button onClick={startReview} disabled={busy} className="block text-xs bg-council-navy text-white rounded-card px-3 py-1.5 disabled:opacity-60">
+            {busy ? "Starting…" : "Start Review"}
           </button>
-          <button onClick={() => setPendingAction(null)} className="text-xs text-council-ink/50 underline">Cancel</button>
         </div>
       ) : (
-        <div className="flex gap-2">
-          {status === "Pending" && (
-            <button onClick={startReview} disabled={busy} className="text-xs border border-council-navy/20 text-council-navy rounded-card px-3 py-1.5 disabled:opacity-60">Start Review</button>
+        <>
+          {documentId && (
+            <button onClick={handleView} className="flex items-center gap-1 text-xs text-council-cyan underline mb-3">
+              <FileText size={12} aria-hidden="true" /> View supporting document
+            </button>
           )}
-          <button onClick={() => setPendingAction("Approved")} disabled={busy} className="text-xs bg-status-active text-white rounded-card px-3 py-1.5 disabled:opacity-60">Approve</button>
-          <button onClick={() => setPendingAction("Rejected")} disabled={busy} className="text-xs border border-status-closed/40 text-status-closed rounded-card px-3 py-1.5 disabled:opacity-60">Reject</button>
-        </div>
+
+          {pendingAction ? (
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                placeholder="Comment (optional)"
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                className="flex-1 text-xs border border-council-navy/20 rounded-card px-2 py-1.5"
+              />
+              <button onClick={() => confirm(pendingAction)} disabled={busy} className={`text-xs rounded-card px-3 py-1.5 text-white disabled:opacity-60 ${pendingAction === "Approved" ? "bg-status-active" : "bg-status-closed"}`}>
+                Confirm {pendingAction}
+              </button>
+              <button onClick={() => setPendingAction(null)} className="text-xs text-council-ink/50 underline">Cancel</button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <button onClick={() => setPendingAction("Approved")} disabled={busy} className="text-xs bg-status-active text-white rounded-card px-3 py-1.5 disabled:opacity-60">Approve</button>
+              <button onClick={() => setPendingAction("Rejected")} disabled={busy} className="text-xs border border-status-closed/40 text-status-closed rounded-card px-3 py-1.5 disabled:opacity-60">Reject</button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
