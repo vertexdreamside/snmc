@@ -8,6 +8,65 @@ import { requireAdmin } from "@/lib/auth/guards";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { validateLicenseFormat } from "@/lib/licenses";
 
+// Permanent deletion — added per explicit request: "Let Admin be able to
+// delete profile due to duplicates or test account existed when the
+// database was uploaded." Distinct from "Mark as Deceased" above, which
+// deliberately preserves the record. This is a real hard delete of the
+// people row. Most related tables (license_documents, special_licenses,
+// license_renewals, name_change_requests, people_emails, advanced_education,
+// person_specialities) already cascade-delete on person_id per their
+// migrations, so those clean up automatically. Tables that do NOT cascade
+// (candidates, councillor_terms, nominations) will make Postgres reject the
+// delete with a foreign-key violation if this person has any real election
+// history attached — that's treated as a safety net, not a bug: those are
+// exactly the people this action should refuse to delete outright.
+export async function DELETE(_request: Request, { params: paramsPromise }: { params: Promise<{ id: string }> }) {
+  const params = await paramsPromise;
+  const admin = await requireAdmin(["register"]);
+  const supabase = createServiceRoleClient();
+
+  const { data: person, error: lookupError } = await supabase
+    .from("people")
+    .select("first_name, last_name, nurse_reg_no, midwife_reg_no")
+    .eq("id", params.id)
+    .single();
+
+  if (lookupError || !person) {
+    return NextResponse.json({ ok: false, reason: "Person not found." }, { status: 404 });
+  }
+
+  const { error: deleteError } = await supabase.from("people").delete().eq("id", params.id);
+
+  if (deleteError) {
+    // Postgres 23503 = foreign_key_violation — this person still has
+    // election-history rows (candidacy, councillor term, or nomination)
+    // that don't cascade-delete on purpose.
+    const reason =
+      deleteError.code === "23503"
+        ? "This person can't be permanently deleted — they have election history on record (a candidacy, councillor term, or nomination). Use \"Mark as Deceased\" instead if they need to be removed from active use."
+        : "Could not delete this record.";
+    return NextResponse.json({ ok: false, reason }, { status: 409 });
+  }
+
+  // The person row is gone, so this can't reference target_id via a
+  // foreign key (and audit_log doesn't have one to people) — record the
+  // identifying details directly since they won't be look-up-able after this.
+  await supabase.from("audit_log").insert({
+    actor_id: admin.id,
+    action: "admin_permanently_deleted_person",
+    target_table: "people",
+    target_id: params.id,
+    details: {
+      first_name: person.first_name,
+      last_name: person.last_name,
+      nurse_reg_no: person.nurse_reg_no,
+      midwife_reg_no: person.midwife_reg_no,
+    },
+  });
+
+  return NextResponse.json({ ok: true });
+}
+
 const updateSchema = z.object({
   action: z.enum(["approve", "reject", "mark_deceased", "edit_fields"]),
   fields: z.record(z.string()).optional(),

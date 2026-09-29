@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { FileText, Upload, Check, X, Plus } from "lucide-react";
+import { FileText, Upload, Check, X, Plus, Pencil } from "lucide-react";
 import { computeSingleExpiryStatus } from "@/lib/reports";
 
 // Section 7: Nurse Licence, Midwife Licence, and every Special Licence
@@ -60,6 +60,42 @@ export function LicenceDetailsSection({
   const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [form, setForm] = useState({ licenseName: "", licenseNumber: "", issuedDate: "", expiryDate: "" });
+  // Which base licence (Nurse/Midwife) is being edited inline, if any —
+  // added per request: "how to edit license for a nurse/midwife? ...add a
+  // way that admin can do that." Uses the existing edit_fields PATCH
+  // action on /api/admin/people/[id], which already whitelisted these two
+  // fields but had no UI calling it until now.
+  const [editingType, setEditingType] = useState<"nurse" | "midwife" | null>(null);
+  const [editForm, setEditForm] = useState({ licenseNo: "", expiry: "" });
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({});
+
+  function startEdit(type: "nurse" | "midwife", licenseNo: string | null, expiry: string | null) {
+    setEditingType(type);
+    setEditForm({ licenseNo: licenseNo ?? "", expiry: expiry ?? "" });
+    setEditErrors((e) => ({ ...e, [type]: "" }));
+  }
+
+  async function handleSaveEdit() {
+    if (!editingType) return;
+    setBusy(`edit-${editingType}`);
+    const fields =
+      editingType === "nurse"
+        ? { nurse_license_no: editForm.licenseNo, nurse_license_expiry: editForm.expiry }
+        : { midwife_license_no: editForm.licenseNo, midwife_license_expiry: editForm.expiry };
+    const res = await fetch(`/api/admin/people/${personId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "edit_fields", fields }),
+    });
+    const data = await res.json();
+    setBusy(null);
+    if (data.ok) {
+      setEditingType(null);
+      router.refresh();
+    } else {
+      setEditErrors((e) => ({ ...e, [editingType]: data.reason ?? "Could not save this change." }));
+    }
+  }
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -157,36 +193,68 @@ export function LicenceDetailsSection({
         </thead>
         <tbody className="divide-y divide-council-navy/10">
           {hasNurse && (
-            <tr>
-              <td className="px-3 py-2">Nurse Licence</td>
-              <td className="px-3 py-2 text-council-ink/60">{nurseLicenseNo}</td>
-              <td className="px-3 py-2 text-council-ink/60">{nurseLicenseExpiry ?? "—"}</td>
-              <td className={`px-3 py-2 font-medium ${statusColor(computeSingleExpiryStatus(nurseLicenseExpiry) ?? "—")}`}>{computeSingleExpiryStatus(nurseLicenseExpiry) ?? "—"}</td>
-              <td className="px-3 py-2">
-                {nurseDoc ? (
-                  <button onClick={() => handleViewBaseDoc(nurseDoc.id)} className="text-council-cyan underline flex items-center gap-1"><FileText size={12} aria-hidden="true" /> View</button>
-                ) : (
-                  <span className="text-council-ink/30">None</span>
-                )}
-              </td>
-              <td className="px-3 py-2"></td>
-            </tr>
+            editingType === "nurse" ? (
+              <EditLicenseRow
+                label="Nurse Licence"
+                form={editForm}
+                setForm={setEditForm}
+                onSave={handleSaveEdit}
+                onCancel={() => setEditingType(null)}
+                busy={busy === "edit-nurse"}
+                error={editErrors.nurse}
+              />
+            ) : (
+              <tr>
+                <td className="px-3 py-2">Nurse Licence</td>
+                <td className="px-3 py-2 text-council-ink/60">{nurseLicenseNo}</td>
+                <td className="px-3 py-2 text-council-ink/60">{nurseLicenseExpiry ?? "—"}</td>
+                <td className={`px-3 py-2 font-medium ${statusColor(computeSingleExpiryStatus(nurseLicenseExpiry) ?? "—")}`}>{computeSingleExpiryStatus(nurseLicenseExpiry) ?? "—"}</td>
+                <td className="px-3 py-2">
+                  {nurseDoc ? (
+                    <button onClick={() => handleViewBaseDoc(nurseDoc.id)} className="text-council-cyan underline flex items-center gap-1"><FileText size={12} aria-hidden="true" /> View</button>
+                  ) : (
+                    <span className="text-council-ink/30">None</span>
+                  )}
+                </td>
+                <td className="px-3 py-2">
+                  <button onClick={() => startEdit("nurse", nurseLicenseNo, nurseLicenseExpiry)} className="text-council-ink/40 flex items-center gap-1" title="Edit">
+                    <Pencil size={12} aria-hidden="true" />
+                  </button>
+                </td>
+              </tr>
+            )
           )}
           {hasMidwife && (
-            <tr>
-              <td className="px-3 py-2">Midwife Licence</td>
-              <td className="px-3 py-2 text-council-ink/60">{midwifeLicenseNo}</td>
-              <td className="px-3 py-2 text-council-ink/60">{midwifeLicenseExpiry ?? "—"}</td>
-              <td className={`px-3 py-2 font-medium ${statusColor(computeSingleExpiryStatus(midwifeLicenseExpiry) ?? "—")}`}>{computeSingleExpiryStatus(midwifeLicenseExpiry) ?? "—"}</td>
-              <td className="px-3 py-2">
-                {midwifeDoc ? (
-                  <button onClick={() => handleViewBaseDoc(midwifeDoc.id)} className="text-council-cyan underline flex items-center gap-1"><FileText size={12} aria-hidden="true" /> View</button>
-                ) : (
-                  <span className="text-council-ink/30">None</span>
-                )}
-              </td>
-              <td className="px-3 py-2"></td>
-            </tr>
+            editingType === "midwife" ? (
+              <EditLicenseRow
+                label="Midwife Licence"
+                form={editForm}
+                setForm={setEditForm}
+                onSave={handleSaveEdit}
+                onCancel={() => setEditingType(null)}
+                busy={busy === "edit-midwife"}
+                error={editErrors.midwife}
+              />
+            ) : (
+              <tr>
+                <td className="px-3 py-2">Midwife Licence</td>
+                <td className="px-3 py-2 text-council-ink/60">{midwifeLicenseNo}</td>
+                <td className="px-3 py-2 text-council-ink/60">{midwifeLicenseExpiry ?? "—"}</td>
+                <td className={`px-3 py-2 font-medium ${statusColor(computeSingleExpiryStatus(midwifeLicenseExpiry) ?? "—")}`}>{computeSingleExpiryStatus(midwifeLicenseExpiry) ?? "—"}</td>
+                <td className="px-3 py-2">
+                  {midwifeDoc ? (
+                    <button onClick={() => handleViewBaseDoc(midwifeDoc.id)} className="text-council-cyan underline flex items-center gap-1"><FileText size={12} aria-hidden="true" /> View</button>
+                  ) : (
+                    <span className="text-council-ink/30">None</span>
+                  )}
+                </td>
+                <td className="px-3 py-2">
+                  <button onClick={() => startEdit("midwife", midwifeLicenseNo, midwifeLicenseExpiry)} className="text-council-ink/40 flex items-center gap-1" title="Edit">
+                    <Pencil size={12} aria-hidden="true" />
+                  </button>
+                </td>
+              </tr>
+            )
           )}
           {specialLicenses.map((l) => (
             <tr key={l.id}>
@@ -223,6 +291,56 @@ export function LicenceDetailsSection({
         </tbody>
       </table>
     </div>
+  );
+}
+
+function EditLicenseRow({
+  label,
+  form,
+  setForm,
+  onSave,
+  onCancel,
+  busy,
+  error,
+}: {
+  label: string;
+  form: { licenseNo: string; expiry: string };
+  setForm: (f: { licenseNo: string; expiry: string }) => void;
+  onSave: () => void;
+  onCancel: () => void;
+  busy: boolean;
+  error?: string;
+}) {
+  return (
+    <tr className="bg-council-cyan/5">
+      <td className="px-3 py-2">{label}</td>
+      <td className="px-3 py-2">
+        <input
+          type="text"
+          value={form.licenseNo}
+          onChange={(e) => setForm({ ...form, licenseNo: e.target.value })}
+          placeholder="e.g. LN1234"
+          className="w-full border border-council-navy/20 rounded-card px-2 py-1 text-sm"
+        />
+      </td>
+      <td className="px-3 py-2">
+        <input
+          type="date"
+          value={form.expiry}
+          onChange={(e) => setForm({ ...form, expiry: e.target.value })}
+          className="w-full border border-council-navy/20 rounded-card px-2 py-1 text-sm"
+        />
+      </td>
+      <td className="px-3 py-2 text-council-ink/30" colSpan={2}>
+        {error && <span className="text-status-closed text-xs">{error}</span>}
+      </td>
+      <td className="px-3 py-2">
+        <div className="flex items-center gap-2">
+          <button onClick={onSave} disabled={busy} className="text-status-active" title="Save"><Check size={14} aria-hidden="true" /></button>
+          <button onClick={onCancel} disabled={busy} className="text-council-ink/40" title="Cancel"><X size={14} aria-hidden="true" /></button>
+        </div>
+      </td>
+    </tr>
   );
 }
 
