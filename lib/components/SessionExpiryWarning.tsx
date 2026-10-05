@@ -79,7 +79,7 @@ export function SessionExpiryWarning({ loginPath }: { loginPath: string }) {
     await fetch("/api/auth/session-expired", { method: "POST" });
     const supabase = createClient();
     await supabase.auth.signOut();
-    window.location.href = `${loginPath}?reason=expired`;
+    window.location.href = `${loginPath}${loginPath.includes("?") ? "&" : "?"}reason=expired`;
   }
 
   async function handleStayLoggedIn() {

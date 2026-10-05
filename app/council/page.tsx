@@ -1,11 +1,17 @@
 import { requireCouncillor } from "@/lib/auth/guards";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 
 export default async function CouncilHome() {
   const { termId } = await requireCouncillor();
+  // The signed-in councillor may be an email/password account that isn't
+  // linked to their register record by auth_user_id (see requireCouncillor),
+  // so row-level security would hide their own term and the elected names
+  // from them. These reads are keyed on the term id requireCouncillor just
+  // verified and only select public-safe fields.
+  const service = createServiceRoleClient();
   const supabase = await createClient();
 
-  const { data: myTerm } = await supabase
+  const { data: myTerm } = await service
     .from("councillor_terms")
     .select("category, appointment_type, service_category, term_start, term_end")
     .eq("id", termId)
@@ -26,7 +32,7 @@ export default async function CouncilHome() {
   // label with no content behind it.
   const resultsByElection = await Promise.all(
     (publishedElections ?? []).map(async (e) => {
-      const { data: elected } = await supabase
+      const { data: elected } = await service
         .from("candidates")
         .select("category, people:person_id(first_name, last_name)")
         .eq("election_id", e.id)

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { Stethoscope, Users } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 import { ContactFooter } from "@/lib/components/ContactFooter";
 
 // Registration Number required; NIN optional for now. See the trade-off
@@ -20,6 +21,10 @@ export default function PortalLoginPage() {
   const next = searchParams.get("next") ?? "/portal";
   const isCouncillor = next === "/council";
   const [registrationNumber, setRegistrationNumber] = useState("");
+  // Councillors sign in with their registered email + password instead of
+  // a registration number (see requireCouncillor in lib/auth/guards.ts).
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [nin, setNin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -28,6 +33,16 @@ export default function PortalLoginPage() {
     e.preventDefault();
     setError(null);
     setLoading(true);
+    if (isCouncillor) {
+      const { error: signInError } = await createClient().auth.signInWithPassword({ email: email.trim(), password });
+      if (signInError) {
+        setLoading(false);
+        setError("We couldn't verify those details.");
+        return;
+      }
+      window.location.href = "/council";
+      return;
+    }
     const res = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -69,16 +84,25 @@ export default function PortalLoginPage() {
             {isCouncillor ? "Councillor Login" : "Nurse / Midwife Login"}
           </h1>
           <p className="font-body text-sm text-council-ink/50 mb-6">
-            {isCouncillor ? "View your term, the Council roster, and published results." : "Vote, nominate, and manage your profile."}
+            {isCouncillor ? "Sign in with your registered email and password." : "Vote, nominate, and manage your profile."}
           </p>
 
-          <Field label="Registration Number" value={registrationNumber} onChange={setRegistrationNumber} required />
-          <Field
-            label="National ID Number (NIN) — if you have one on file"
-            value={nin}
-            onChange={setNin}
-            required={false}
-          />
+          {isCouncillor ? (
+            <>
+              <Field label="Registered Email" value={email} onChange={setEmail} required type="email" />
+              <Field label="Password" value={password} onChange={setPassword} required type="password" />
+            </>
+          ) : (
+            <>
+              <Field label="Registration Number" value={registrationNumber} onChange={setRegistrationNumber} required />
+              <Field
+                label="National ID Number (NIN) — if you have one on file"
+                value={nin}
+                onChange={setNin}
+                required={false}
+              />
+            </>
+          )}
 
           {error && <p className="font-body text-sm text-status-closed mb-4">{error}</p>}
 
@@ -106,17 +130,19 @@ function Field({
   value,
   onChange,
   required,
+  type = "text",
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   required: boolean;
+  type?: string;
 }) {
   return (
     <label className="block mb-4">
       <span className="font-body text-sm text-council-ink/70 block mb-1">{label}</span>
       <input
-        type="text"
+        type={type}
         required={required}
         value={value}
         onChange={(e) => onChange(e.target.value)}

@@ -17,7 +17,7 @@ export default async function CouncilLayout({ children }: { children: React.Reac
 
   return (
     <div className="min-h-screen">
-      <SessionExpiryWarning loginPath="/portal/login" />
+      <SessionExpiryWarning loginPath="/portal/login?next=%2Fcouncil" />
       <header className="bg-council-navyDeep text-white px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Image src="/snmc-emblem.png" alt="" width={42} height={42} aria-hidden="true" />
@@ -28,7 +28,7 @@ export default async function CouncilLayout({ children }: { children: React.Reac
         </div>
         <span className="font-body text-sm text-white/70 flex items-center gap-4">
           {person.first_name} {person.last_name}
-          <LogoutButton redirectTo="/portal/login" className="flex items-center gap-1.5 text-sm text-white/70 hover:text-white" />
+          <LogoutButton redirectTo="/portal/login?next=%2Fcouncil" className="flex items-center gap-1.5 text-sm text-white/70 hover:text-white" />
         </span>
       </header>
       <div className="p-6">{children}</div>

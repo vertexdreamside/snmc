@@ -11,8 +11,11 @@
 // shown in the UI, and carries no access-control meaning.
 
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import type { AdminPermission, Person } from "@/lib/types/database";
+
+const PERSON_SELECT =
+  "id, first_name, last_name, sex, date_of_birth, nationality, address_line1, address_line2, address_line3, phone_home, phone_mobile, nurse_reg_no, midwife_reg_no, professional_category, training_institute, employer, place_of_work, employment_sector, service_category, nurse_license_no, nurse_license_expiry, midwife_license_no, midwife_license_expiry, registration_status, is_active, is_deceased, profile_status, category_confirmed, data_source, created_at, updated_at";
 
 // `loginRedirect` lets a caller say where the login page should send the
 // person back to once they're signed in (e.g. requireCouncillor sends
@@ -31,9 +34,7 @@ export async function requirePortalUser(loginRedirect: string = "/portal/login")
 
   const { data: person, error } = await supabase
     .from("people")
-    .select(
-      "id, first_name, last_name, sex, date_of_birth, nationality, address_line1, address_line2, address_line3, phone_home, phone_mobile, nurse_reg_no, midwife_reg_no, professional_category, training_institute, employer, place_of_work, employment_sector, service_category, nurse_license_no, nurse_license_expiry, midwife_license_no, midwife_license_expiry, registration_status, is_active, is_deceased, profile_status, category_confirmed, data_source, created_at, updated_at"
-    )
+    .select(PERSON_SELECT)
     .eq("auth_user_id", user.id)
     .single();
 
@@ -41,24 +42,60 @@ export async function requirePortalUser(loginRedirect: string = "/portal/login")
   return person as Person;
 }
 
+// Councillors sign in with their registered email + password (a normal
+// Supabase Auth account, created via Admin Users → Councillors) — not the
+// registration-number magic link nurses/midwives use. That account isn't
+// linked to a `people` row by auth_user_id, so the link is made here by
+// matching the account's email to the email on a register record
+// (people_emails), then requiring an ACTIVE Council term for that person.
+// Lookups use the service-role client because RLS on people/people_emails
+// is keyed to auth_user_id and would (correctly) hide these rows from an
+// email-linked session; everything is keyed on the verified session email,
+// and nothing is returned beyond that one person's own record.
+//
+// Sessions created the old way (people.auth_user_id = this user) still
+// work too, so anyone already signed in isn't kicked out by this change.
 export async function requireCouncillor(): Promise<{ person: Person; termId: string }> {
-  const person = await requirePortalUser("/portal/login?next=%2Fcouncil");
+  const loginPath = "/portal/login?next=%2Fcouncil";
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect(loginPath);
 
-  const { data: term } = await supabase
-    .from("councillor_terms")
-    .select("id")
-    .eq("person_id", person.id)
-    .eq("is_active", true)
-    .maybeSingle();
+  const service = createServiceRoleClient();
 
-  if (!term) {
-    // Signed in as a Nurse/Midwife, but not a current Councillor —
-    // send them to the portal they do have access to, not an error page.
-    redirect("/portal");
+  const personIds = new Set<string>();
+  const { data: byAuth } = await service.from("people").select("id").eq("auth_user_id", user.id);
+  (byAuth ?? []).forEach((r) => personIds.add(r.id));
+
+  if (user.email) {
+    const { data: byEmail } = await service.from("people_emails").select("person_id").ilike("email", user.email.replace(/[\\%_]/g, "\\$&"));
+    (byEmail ?? []).forEach((r) => r.person_id && personIds.add(r.person_id));
   }
 
-  return { person, termId: term.id };
+  if (personIds.size === 0) redirect(loginPath);
+
+  const { data: terms } = await service
+    .from("councillor_terms")
+    .select("id, person_id")
+    .in("person_id", Array.from(personIds))
+    .eq("is_active", true)
+    .limit(1);
+
+  const term = terms?.[0];
+  if (!term) {
+    // Signed in, but not a current Councillor. A nurse/midwife session
+    // goes to their own portal; an email/password-only account has no
+    // portal of its own, so send it back to the Councillor login.
+    if (byAuth && byAuth.length > 0) redirect("/portal");
+    redirect(loginPath);
+  }
+
+  const { data: person } = await service.from("people").select(PERSON_SELECT).eq("id", term.person_id).single();
+  if (!person) redirect(loginPath);
+
+  return { person: person as unknown as Person, termId: term.id };
 }
 
 const PERMISSION_COLUMN: Record<AdminPermission, string> = {
