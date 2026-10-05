@@ -55,7 +55,7 @@ export async function requirePortalUser(loginRedirect: string = "/portal/login")
 //
 // Sessions created the old way (people.auth_user_id = this user) still
 // work too, so anyone already signed in isn't kicked out by this change.
-export async function requireCouncillor(): Promise<{ person: Person; termId: string }> {
+export async function requireCouncillor(): Promise<{ person: Person; termId: string | null }> {
   const loginPath = "/portal/login?next=%2Fcouncil";
   const supabase = await createClient();
   const {
@@ -64,6 +64,21 @@ export async function requireCouncillor(): Promise<{ person: Person; termId: str
   if (!user) redirect(loginPath);
 
   const service = createServiceRoleClient();
+
+  // Open access for Councillor accounts (for now): anyone with an active
+  // Councillor account created in Admin Users → Councillors can enter the
+  // Council Portal, with no need for a matching register record or an
+  // active Council term. (Tighten later by removing this block.)
+  const { data: councillorAdmin } = await service
+    .from("admin_users")
+    .select("full_name, is_disabled, user_type")
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+  if (councillorAdmin && councillorAdmin.user_type === "Councillor" && !councillorAdmin.is_disabled) {
+    const parts = (councillorAdmin.full_name ?? "Councillor").trim().split(/\s+/);
+    const person = { first_name: parts[0] ?? "Councillor", last_name: parts.slice(1).join(" ") } as unknown as Person;
+    return { person, termId: null };
+  }
 
   const personIds = new Set<string>();
   const { data: byAuth } = await service.from("people").select("id").eq("auth_user_id", user.id);

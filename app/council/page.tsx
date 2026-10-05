@@ -11,11 +11,13 @@ export default async function CouncilHome() {
   const service = createServiceRoleClient();
   const supabase = await createClient();
 
-  const { data: myTerm } = await service
-    .from("councillor_terms")
-    .select("category, appointment_type, service_category, term_start, term_end")
-    .eq("id", termId)
-    .single();
+  const { data: myTerm } = termId
+    ? await service
+        .from("councillor_terms")
+        .select("category, appointment_type, service_category, term_start, term_end")
+        .eq("id", termId)
+        .single()
+    : { data: null };
 
   const { data: roster } = await supabase
     .from("council_roster")
