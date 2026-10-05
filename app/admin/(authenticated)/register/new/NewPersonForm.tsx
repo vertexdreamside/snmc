@@ -20,6 +20,7 @@ export function NewPersonForm() {
     professional_category: "Nurse", registration_status: "Practising", is_deceased: false,
     service_category: "",
     employer: "", place_of_work: "", phone_mobile: "",
+    special_license_name: "", special_license_number: "",
   });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -105,6 +106,8 @@ export function NewPersonForm() {
       <Field label="Employer" value={form.employer} onChange={(v) => update("employer", v)} />
       <Field label="Place of Work" value={form.place_of_work} onChange={(v) => update("place_of_work", v)} />
       <Field label="Mobile Number" value={form.phone_mobile} onChange={(v) => update("phone_mobile", v)} />
+      <Field label="Special Licence Name (optional)" value={form.special_license_name} onChange={(v) => update("special_license_name", v)} placeholder="e.g. Critical Care" />
+      <Field label="Special Licence Number (optional)" value={form.special_license_number} onChange={(v) => update("special_license_number", v)} />
       {error && <p className="font-body text-sm text-status-closed">{error}</p>}
       <button type="submit" disabled={busy} className="bg-council-navy text-white font-body font-medium rounded-card px-5 py-2.5 hover:bg-council-navyDeep transition-colors disabled:opacity-60">
         {busy ? "Creating…" : "Add to Register"}

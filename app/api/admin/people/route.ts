@@ -36,6 +36,8 @@ const createPersonSchema = z.object({
   employer: z.string().optional().default(""),
   place_of_work: z.string().optional().default(""),
   phone_mobile: z.string().optional().default(""),
+  special_license_name: z.string().optional().default(""),
+  special_license_number: z.string().optional().default(""),
 });
 
 export async function POST(request: Request) {
@@ -87,6 +89,15 @@ export async function POST(request: Request) {
 
   if (data.email) {
     await supabase.from("people_emails").insert({ person_id: created.id, email: data.email });
+  }
+
+  if (data.special_license_name.trim() || data.special_license_number.trim()) {
+    await supabase.from("special_licenses").insert({
+      person_id: created.id,
+      license_name: data.special_license_name.trim() || "Special Licence",
+      license_number: data.special_license_number.trim() || null,
+      created_by: actor.id,
+    });
   }
 
   await supabase.from("audit_log").insert({
