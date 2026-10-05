@@ -18,10 +18,17 @@ export default async function AdminUsersPage() {
   // page is already limited to admins with the Admin Users permission) and
   // shown on each row, for both the Admin Users and Councillors lists.
   const service = createServiceRoleClient();
+  const emailByAuthId = new Map<string, string>();
+  for (let page = 1; page <= 10; page++) {
+    const { data, error } = await service.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error || !data?.users?.length) break;
+    data.users.forEach((u) => u.email && emailByAuthId.set(u.id, u.email));
+    if (data.users.length < 1000) break;
+  }
   const usersWithEmail = await Promise.all(
     (users ?? []).map(async ({ auth_user_id, ...u }) => {
-      let email: string | null = null;
-      if (auth_user_id) {
+      let email = auth_user_id ? emailByAuthId.get(auth_user_id) ?? null : null;
+      if (!email && auth_user_id) {
         const { data } = await service.auth.admin.getUserById(auth_user_id);
         email = data?.user?.email ?? null;
       }
@@ -30,7 +37,7 @@ export default async function AdminUsersPage() {
   );
 
   return (
-    <div className="max-w-3xl space-y-4">
+    <div className="max-w-5xl space-y-4">
       <div className="flex items-start justify-between">
         <div>
           <h1 className="font-display text-xl text-council-navy">Admin Users</h1>

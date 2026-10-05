@@ -63,35 +63,21 @@ export function AdminUsersManager({ users, currentAdminId }: { users: AdminUserR
 }
 
 function UsersTable({ users, currentAdminId, onChanged, emptyMessage }: { users: AdminUserRow[]; currentAdminId: string; onChanged: () => void; emptyMessage: string }) {
+  // One card per person, with identity, access, activity and account
+  // actions all visible together — no sideways scrolling, nothing hidden
+  // behind a second click.
+  if (users.length === 0) {
+    return (
+      <div className="bg-white rounded-card border border-council-navy/10 px-4 py-8 text-center font-body text-sm text-council-ink/50">
+        {emptyMessage}
+      </div>
+    );
+  }
   return (
-    <div className="bg-white rounded-card border border-council-navy/10 overflow-x-auto">
-      <table className="w-full font-body text-sm">
-        <thead className="bg-council-cream text-council-ink/60 text-left">
-          <tr>
-            <th className="px-4 py-3">Name / Title</th>
-            {PERMISSION_FIELDS.map((f) => (
-              <th key={f.key} className="px-3 py-3 text-center">
-                {f.label}
-              </th>
-            ))}
-            <th className="px-3 py-3 text-center">Full Access</th>
-            <th className="px-4 py-3">Activity</th>
-            <th className="px-4 py-3 w-40"></th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-council-navy/10">
-          {users.map((u) => (
-            <UserRow key={u.id} user={u} isSelf={u.id === currentAdminId} onChanged={onChanged} />
-          ))}
-          {users.length === 0 && (
-            <tr>
-              <td colSpan={8} className="px-4 py-8 text-center text-council-ink/50">
-                {emptyMessage}
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+    <div className="space-y-3">
+      {users.map((u) => (
+        <UserRow key={u.id} user={u} isSelf={u.id === currentAdminId} onChanged={onChanged} />
+      ))}
     </div>
   );
 }
@@ -150,96 +136,137 @@ function UserRow({ user, isSelf, onChanged }: { user: AdminUserRow; isSelf: bool
     }
   }
 
+  const initials = (user.full_name ?? "?").split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+
   return (
-    <tr className={user.is_disabled ? "bg-council-ink/5 opacity-60" : user.full_access ? "bg-council-cyan/5" : ""}>
-      <td className="px-4 py-3">
-        <div className="font-medium">
-          {user.full_name ?? "—"} {isSelf && <span className="text-council-ink/40 text-xs">(you)</span>}
-          {user.is_disabled && <span className="ml-2 text-status-closed text-xs font-medium">Disabled</span>}
+    <div
+      className={`bg-white rounded-card border p-4 font-body text-sm ${
+        user.is_disabled ? "border-council-ink/20 bg-council-ink/5" : user.full_access ? "border-council-cyan/40" : "border-council-navy/10"
+      }`}
+    >
+      <div className="grid gap-4 md:grid-cols-[minmax(0,1.3fr)_minmax(0,1.2fr)_minmax(0,1fr)]">
+        {/* Who */}
+        <div className="flex gap-3 min-w-0">
+          <div className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium ${user.is_disabled ? "bg-council-ink/10 text-council-ink/50" : "bg-council-navy text-white"}`}>
+            {initials}
+          </div>
+          <div className="min-w-0">
+            <div className="font-medium text-council-navy flex flex-wrap items-center gap-x-2">
+              {user.full_name ?? "—"}
+              {isSelf && <span className="text-council-ink/40 text-xs font-normal">(you)</span>}
+              {user.is_disabled && <span className="text-xs font-medium text-status-closed bg-status-closed/10 rounded px-1.5 py-0.5">Disabled</span>}
+              {user.full_access && <span className="text-xs font-medium text-council-cyan bg-council-cyan/10 rounded px-1.5 py-0.5">Full Access</span>}
+            </div>
+            <p className="text-xs mt-0.5 break-all text-council-ink/80">
+              {user.email ?? <span className="text-council-ink/40 italic">No sign-in email found</span>}
+            </p>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              onBlur={() => title !== (user.role ?? "") && patchField("role", title)}
+              placeholder="Add a title"
+              className="mt-1 text-xs text-council-ink/60 border-b border-transparent hover:border-council-navy/20 focus:border-council-cyan outline-none bg-transparent w-full"
+            />
+            <p className="text-xs text-council-ink/40 mt-1">
+              {user.phone ? `${user.phone} · ` : ""}Created {formatSeychellesTime(user.created_at)}
+            </p>
+          </div>
         </div>
-        {user.email && <p className="text-xs text-council-ink/60 mt-0.5 break-all">{user.email}</p>}
-        <input
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          onBlur={() => title !== (user.role ?? "") && patchField("role", title)}
-          placeholder="Title (optional)"
-          className="mt-1 text-xs text-council-ink/60 border-b border-transparent hover:border-council-navy/20 focus:border-council-cyan outline-none bg-transparent w-full"
-        />
-        {user.phone && <p className="text-xs text-council-ink/40 mt-0.5">{user.phone}</p>}
-        <p className="text-xs text-council-ink/30 mt-0.5">Created {formatSeychellesTime(user.created_at)}</p>
-        {resetMessage && <p className="text-xs text-council-ink/50 mt-1">{resetMessage}</p>}
-      </td>
-      {PERMISSION_FIELDS.map((f) => (
-        <td key={f.key} className="px-3 py-3 text-center">
-          <input
-            type="checkbox"
-            checked={user[f.key]}
-            disabled={busy !== null || user.full_access}
-            onChange={(e) => patchField(f.key, e.target.checked)}
-            className="accent-council-navy w-4 h-4"
-          />
-        </td>
-      ))}
-      <td className="px-3 py-3 text-center">
-        <input
-          type="checkbox"
-          checked={user.full_access}
-          disabled={busy !== null || isSelf}
-          onChange={(e) => patchField("full_access", e.target.checked)}
-          className="accent-council-cyan w-4 h-4"
-        />
-      </td>
-      <td className="px-4 py-3">
-        <AdminActivityStatus adminId={user.id} />
-      </td>
-      <td className="px-4 py-3">
-        <div className="flex flex-col gap-1 items-start">
+
+        {/* What they can do */}
+        <div>
+          <p className="text-[11px] uppercase tracking-wide text-council-ink/50 mb-1.5">Access</p>
+          <div className="flex flex-wrap gap-1.5">
+            {PERMISSION_FIELDS.map((f) => {
+              const on = user.full_access || user[f.key];
+              return (
+                <label
+                  key={f.key}
+                  className={`flex items-center gap-1.5 text-xs rounded-full border px-2.5 py-1 cursor-pointer select-none ${
+                    on ? "bg-council-navy/5 border-council-navy/30 text-council-navy" : "border-council-navy/10 text-council-ink/50"
+                  } ${busy !== null || user.full_access ? "opacity-70 cursor-not-allowed" : ""}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={on}
+                    disabled={busy !== null || user.full_access}
+                    onChange={(e) => patchField(f.key, e.target.checked)}
+                    className="accent-council-navy w-3.5 h-3.5"
+                  />
+                  {f.label}
+                </label>
+              );
+            })}
+            <label
+              className={`flex items-center gap-1.5 text-xs rounded-full border px-2.5 py-1 select-none ${
+                user.full_access ? "bg-council-cyan/10 border-council-cyan/40 text-council-navy" : "border-council-navy/10 text-council-ink/50"
+              } ${busy !== null || isSelf ? "opacity-70 cursor-not-allowed" : "cursor-pointer"}`}
+            >
+              <input
+                type="checkbox"
+                checked={user.full_access}
+                disabled={busy !== null || isSelf}
+                onChange={(e) => patchField("full_access", e.target.checked)}
+                className="accent-council-cyan w-3.5 h-3.5"
+              />
+              Full Access
+            </label>
+          </div>
+          <div className="mt-3">
+            <AdminActivityStatus adminId={user.id} />
+          </div>
+        </div>
+
+        {/* Account actions */}
+        <div>
+          <p className="text-[11px] uppercase tracking-wide text-council-ink/50 mb-1.5">Account</p>
           {showPasswordField ? (
-            <div className="flex flex-col gap-1 w-full min-w-[9rem]">
+            <div className="flex flex-col gap-1.5">
               <input
                 type="text"
                 value={newPasswordInput}
                 onChange={(e) => setNewPasswordInput(e.target.value)}
                 placeholder="New password (8+ chars)"
-                className="text-xs border border-council-navy/20 rounded-card px-2 py-1 w-full"
+                className="text-xs border border-council-navy/20 rounded-card px-2 py-1.5 w-full"
               />
               <div className="flex gap-2">
-                <button onClick={() => handleResetPassword(newPasswordInput)} disabled={busy !== null} className="text-council-navy text-xs font-body underline disabled:opacity-60">
+                <button onClick={() => handleResetPassword(newPasswordInput)} disabled={busy !== null} className="text-xs bg-council-navy text-white rounded-card px-2.5 py-1 disabled:opacity-60">
                   {busy === "reset" ? "Setting…" : "Set Password"}
                 </button>
-                <button onClick={() => { setShowPasswordField(false); setNewPasswordInput(""); }} className="text-council-ink/50 text-xs font-body underline">
+                <button onClick={() => { setShowPasswordField(false); setNewPasswordInput(""); }} className="text-xs text-council-ink/60 px-2 py-1">
                   Cancel
                 </button>
               </div>
             </div>
           ) : (
-            <div className="flex gap-2">
-              <button onClick={() => setShowPasswordField(true)} disabled={busy !== null} className="text-council-navy text-xs font-body underline disabled:opacity-60">
+            <div className="flex flex-wrap gap-1.5">
+              <button onClick={() => setShowPasswordField(true)} disabled={busy !== null} className="text-xs border border-council-navy/20 text-council-navy rounded-card px-2.5 py-1 hover:bg-council-navy/5 disabled:opacity-60">
                 Set Password
               </button>
-              <button onClick={() => handleResetPassword("")} disabled={busy !== null} className="text-council-navy text-xs font-body underline disabled:opacity-60">
+              <button onClick={() => handleResetPassword("")} disabled={busy !== null} className="text-xs border border-council-navy/20 text-council-navy rounded-card px-2.5 py-1 hover:bg-council-navy/5 disabled:opacity-60">
                 {busy === "reset" ? "Resetting…" : "Random Reset"}
               </button>
+              {!isSelf && (
+                <button
+                  onClick={() => patchField("is_disabled", !user.is_disabled)}
+                  disabled={busy !== null}
+                  className={`text-xs border rounded-card px-2.5 py-1 disabled:opacity-60 ${user.is_disabled ? "border-status-active/40 text-status-active" : "border-status-pending/40 text-status-pending"}`}
+                >
+                  {user.is_disabled ? "Enable" : "Disable"}
+                </button>
+              )}
+              {!isSelf && (
+                <button onClick={handleRemove} disabled={busy !== null} className="text-xs border border-status-closed/40 text-status-closed rounded-card px-2.5 py-1 disabled:opacity-60">
+                  Remove
+                </button>
+              )}
             </div>
           )}
-          {!isSelf && (
-            <button
-              onClick={() => patchField("is_disabled", !user.is_disabled)}
-              disabled={busy !== null}
-              className={`text-xs font-body underline disabled:opacity-60 ${user.is_disabled ? "text-status-active" : "text-status-pending"}`}
-            >
-              {user.is_disabled ? "Enable Account" : "Disable Account"}
-            </button>
-          )}
-          {!isSelf && (
-            <button onClick={handleRemove} disabled={busy !== null} className="text-status-closed text-xs font-body underline disabled:opacity-60">
-              Remove
-            </button>
-          )}
         </div>
-      </td>
-    </tr>
+      </div>
+      {resetMessage && <p className="text-xs text-council-ink/70 mt-3 bg-council-cream rounded-card px-3 py-2 break-words">{resetMessage}</p>}
+    </div>
   );
 }
 
