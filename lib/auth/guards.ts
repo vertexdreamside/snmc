@@ -14,13 +14,20 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { AdminPermission, Person } from "@/lib/types/database";
 
-export async function requirePortalUser(): Promise<Person> {
+// `loginRedirect` lets a caller say where the login page should send the
+// person back to once they're signed in (e.g. requireCouncillor sends
+// "/portal/login?next=/council" so an unauthenticated Councillor doesn't
+// get dropped on the generic Nurse/Midwife portal after signing in — see
+// the matching fix in app/portal/login/page.tsx, which also uses this
+// `next` value to show "Councillor Login" instead of "Nurse / Midwife
+// Login" on the form itself).
+export async function requirePortalUser(loginRedirect: string = "/portal/login"): Promise<Person> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) redirect("/portal/login");
+  if (!user) redirect(loginRedirect);
 
   const { data: person, error } = await supabase
     .from("people")
@@ -30,12 +37,12 @@ export async function requirePortalUser(): Promise<Person> {
     .eq("auth_user_id", user.id)
     .single();
 
-  if (error || !person) redirect("/portal/login");
+  if (error || !person) redirect(loginRedirect);
   return person as Person;
 }
 
 export async function requireCouncillor(): Promise<{ person: Person; termId: string }> {
-  const person = await requirePortalUser();
+  const person = await requirePortalUser("/portal/login?next=%2Fcouncil");
   const supabase = await createClient();
 
   const { data: term } = await supabase
