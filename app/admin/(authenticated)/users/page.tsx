@@ -1,5 +1,5 @@
 import { requireAdmin } from "@/lib/auth/guards";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { AdminUsersManager } from "./AdminUsersManager";
 import Link from "next/link";
 
@@ -9,9 +9,25 @@ export default async function AdminUsersPage() {
 
   const { data: users } = await supabase
     .from("admin_users")
-    .select("id, full_name, role, phone, user_type, can_view_reports, can_manage_register, can_manage_elections, can_manage_admin_users, full_access, is_disabled, created_at")
+    .select("id, auth_user_id, full_name, role, phone, user_type, can_view_reports, can_manage_register, can_manage_elections, can_manage_admin_users, full_access, is_disabled, created_at")
     .eq("is_removed", false)
     .order("full_name");
+
+  // The sign-in email lives on the Supabase Auth account, not on
+  // admin_users, so it's looked up per person here (service role — this
+  // page is already limited to admins with the Admin Users permission) and
+  // shown on each row, for both the Admin Users and Councillors lists.
+  const service = createServiceRoleClient();
+  const usersWithEmail = await Promise.all(
+    (users ?? []).map(async ({ auth_user_id, ...u }) => {
+      let email: string | null = null;
+      if (auth_user_id) {
+        const { data } = await service.auth.admin.getUserById(auth_user_id);
+        email = data?.user?.email ?? null;
+      }
+      return { ...u, email };
+    })
+  );
 
   return (
     <div className="max-w-3xl space-y-4">
@@ -27,7 +43,7 @@ export default async function AdminUsersPage() {
           Session Settings
         </Link>
       </div>
-      <AdminUsersManager users={users ?? []} currentAdminId={currentAdmin.id} />
+      <AdminUsersManager users={usersWithEmail} currentAdminId={currentAdmin.id} />
     </div>
   );
 }

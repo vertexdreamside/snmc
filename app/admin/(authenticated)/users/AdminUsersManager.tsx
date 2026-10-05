@@ -8,6 +8,7 @@ import { formatSeychellesTime } from "@/lib/reports";
 interface AdminUserRow {
   id: string;
   full_name: string | null;
+  email: string | null;
   role: string | null;
   phone: string | null;
   user_type: "Admin" | "Councillor";
@@ -156,6 +157,7 @@ function UserRow({ user, isSelf, onChanged }: { user: AdminUserRow; isSelf: bool
           {user.full_name ?? "—"} {isSelf && <span className="text-council-ink/40 text-xs">(you)</span>}
           {user.is_disabled && <span className="ml-2 text-status-closed text-xs font-medium">Disabled</span>}
         </div>
+        {user.email && <p className="text-xs text-council-ink/60 mt-0.5 break-all">{user.email}</p>}
         <input
           type="text"
           value={title}
