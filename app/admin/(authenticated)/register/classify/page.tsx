@@ -51,6 +51,18 @@ export default async function ClassifyPage({ searchParams: searchParamsPromise }
     docsByPerson.set(doc.person_id, entry);
   }
 
+  // Special licences already on file for these people (shown in the new
+  // "Upload Special Licence" cell).
+  const { data: specials } = personIds.length
+    ? await supabase.from("special_licenses").select("id, person_id, license_name, document_path").in("person_id", personIds)
+    : { data: [] };
+  const specialsByPerson = new Map<string, { id: string; license_name: string; has_document: boolean }[]>();
+  for (const sl of specials ?? []) {
+    const list = specialsByPerson.get(sl.person_id) ?? [];
+    list.push({ id: sl.id, license_name: sl.license_name, has_document: !!sl.document_path });
+    specialsByPerson.set(sl.person_id, list);
+  }
+
   // License status filter — applied after the document lookup above,
   // since "has an approved/pending/rejected document" isn't a column on
   // people itself, it's derived from license_documents.
@@ -92,7 +104,7 @@ export default async function ClassifyPage({ searchParams: searchParamsPromise }
         <button type="submit" className="text-sm font-body bg-council-navy text-white rounded-card px-4 py-2">Search</button>
       </form>
 
-      <ClassifyTable people={people} documents={docsByPerson} />
+      <ClassifyTable people={people} documents={docsByPerson} specialLicenses={specialsByPerson} />
       <p className="font-body text-xs text-council-ink/40">
         Showing up to 500 at a time (matching the bulk-confirm limit) — confirmed records drop off this list
         automatically, so repeat as needed until the count above reaches 0.

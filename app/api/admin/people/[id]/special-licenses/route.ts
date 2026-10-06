@@ -20,14 +20,14 @@ export async function POST(request: Request, { params: paramsPromise }: { params
   }
 
   const supabase = createServiceRoleClient();
-  const { error } = await supabase.from("special_licenses").insert({
+  const { data: created, error } = await supabase.from("special_licenses").insert({
     person_id: params.id,
     license_name: parsed.data.licenseName,
     license_number: parsed.data.licenseNumber || null,
     issued_date: parsed.data.issuedDate || null,
     expiry_date: parsed.data.expiryDate || null,
     created_by: admin.id,
-  });
+  }).select("id").single();
 
   if (error) {
     return NextResponse.json({ ok: false, reason: "Could not add the special licence." }, { status: 500 });
@@ -41,5 +41,5 @@ export async function POST(request: Request, { params: paramsPromise }: { params
     details: { license_name: parsed.data.licenseName },
   });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, id: created?.id });
 }

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { LicenseDocumentCell, type LicenseDocSummary } from "./LicenseDocumentCell";
+import { SpecialLicenseUploadCell, type SpecialLicenseSummary } from "./SpecialLicenseUploadCell";
 
 interface Row {
   id: string;
@@ -18,7 +19,7 @@ interface Row {
 // registered as Both. Existing nurse_reg_no/midwife_reg_no and the current
 // professional_category guess are shown as a starting hint, but nothing is
 // trusted until explicitly confirmed here (see migration 0004).
-export function ClassifyTable({ people, documents }: { people: Row[]; documents: Map<string, { nurse?: LicenseDocSummary; midwife?: LicenseDocSummary }> }) {
+export function ClassifyTable({ people, documents, specialLicenses }: { people: Row[]; documents: Map<string, { nurse?: LicenseDocSummary; midwife?: LicenseDocSummary }>; specialLicenses: Map<string, SpecialLicenseSummary[]> }) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
@@ -115,6 +116,7 @@ export function ClassifyTable({ people, documents }: { people: Row[]; documents:
                   <div className="space-y-1.5">
                     <LicenseDocumentCell personId={p.id} licenseType="Nurse" document={documents.get(p.id)?.nurse ?? null} />
                     <LicenseDocumentCell personId={p.id} licenseType="Midwife" document={documents.get(p.id)?.midwife ?? null} />
+                    <SpecialLicenseUploadCell personId={p.id} licenses={specialLicenses.get(p.id) ?? []} />
                   </div>
                 </td>
               </tr>
