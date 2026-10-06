@@ -12,6 +12,23 @@ export default async function LicenseRenewalsPage() {
     .in("status", ["Pending", "Under Review"])
     .order("submitted_at", { ascending: true });
 
+  // If a renewal came in without its own supporting document, fall back to
+  // the licence document already on file for that person and licence type,
+  // so the reviewer still has something to look at.
+  const personIds = Array.from(new Set((renewals ?? []).map((r: any) => (Array.isArray(r.people) ? r.people[0]?.id : r.people?.id)).filter(Boolean)));
+  const { data: onFileDocs } = personIds.length
+    ? await supabase
+        .from("license_documents")
+        .select("id, person_id, license_type, created_at")
+        .in("person_id", personIds)
+        .order("created_at", { ascending: false })
+    : { data: [] as { id: string; person_id: string; license_type: string; created_at: string }[] };
+  const onFile = new Map<string, string>();
+  for (const d of onFileDocs ?? []) {
+    const key = `${d.person_id}:${d.license_type}`;
+    if (!onFile.has(key)) onFile.set(key, d.id);
+  }
+
   return (
     <div className="space-y-4 max-w-3xl">
       <div>
@@ -36,6 +53,7 @@ export default async function LicenseRenewalsPage() {
               previousExpiry={r.previous_expiry_date}
               requestedExpiry={r.requested_expiry_date}
               documentId={r.supporting_document_id}
+              onFileDocumentId={onFile.get(`${p?.id}:${r.license_type}`) ?? null}
               status={r.status}
               submittedAt={r.submitted_at}
             />
