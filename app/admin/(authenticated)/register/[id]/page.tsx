@@ -7,6 +7,7 @@ import { categoryDisplay } from "@/lib/licenses";
 import { canManageRegister } from "@/lib/auth/permissions";
 import { LicenceDetailsSection } from "./LicenceDetailsSection";
 import { HistorySection } from "./HistorySection";
+import { DocumentsSection, type PersonDocument } from "./DocumentsSection";
 import { formatSeychellesTime } from "@/lib/reports";
 
 // Reorganized per Section 7: Profile Summary, Personal Details,
@@ -57,13 +58,13 @@ export default async function PersonDetailPage({ params: paramsPromise }: { para
 
   const { data: specialLicenses } = await supabase
     .from("special_licenses")
-    .select("id, license_name, license_number, issued_date, expiry_date, status, source, document_path")
+    .select("id, license_name, license_number, issued_date, expiry_date, status, source, document_path, document_uploaded_by, document_uploaded_at")
     .eq("person_id", params.id)
     .order("created_at", { ascending: false });
 
   const { data: licenseDocs } = await supabase
     .from("license_documents")
-    .select("id, license_type, status")
+    .select("id, license_type, status, original_filename, uploaded_by_role, created_at")
     .eq("person_id", params.id)
     .order("created_at", { ascending: false });
 
@@ -72,15 +73,50 @@ export default async function PersonDetailPage({ params: paramsPromise }: { para
 
   const { data: renewalHistory } = await supabase
     .from("license_renewals")
-    .select("id, license_type, previous_expiry_date, requested_expiry_date, status, submitted_at, reviewed_at, review_comment")
+    .select("id, license_type, previous_expiry_date, requested_expiry_date, status, submitted_at, reviewed_at, review_comment, supporting_document_id")
     .eq("person_id", params.id)
     .order("submitted_at", { ascending: false });
 
   const { data: nameChangeHistory } = await supabase
     .from("name_change_requests")
-    .select("id, previous_first_name, previous_last_name, requested_first_name, requested_last_name, reason, status, submitted_at, reviewed_at, review_comment")
+    .select("id, previous_first_name, previous_last_name, requested_first_name, requested_last_name, reason, status, submitted_at, reviewed_at, review_comment, document_path")
     .eq("person_id", params.id)
     .order("submitted_at", { ascending: false });
+
+  // Every uploaded file for this person, newest first — shown only to
+  // administrators who can manage the register (the same people the
+  // signed-link endpoints already allow).
+  const renewalDocIds = new Set((renewalHistory ?? []).map((r: any) => r.supporting_document_id).filter(Boolean));
+  const when = (v: string | null | undefined) => (v ? formatSeychellesTime(v) : null);
+  const documents: (PersonDocument & { sort: string })[] = [
+    ...(licenseDocs ?? []).map((d: any) => ({
+      key: `ld-${d.id}`,
+      label: renewalDocIds.has(d.id) ? `Renewal supporting document (${d.license_type})` : `${d.license_type} licence`,
+      detail: `${d.original_filename ?? "Uploaded file"} · by ${d.uploaded_by_role === "admin" ? "administrator" : "the nurse/midwife"}`,
+      uploadedAt: when(d.created_at),
+      status: d.status ?? null,
+      viewEndpoint: `/api/admin/license-documents/${d.id}/view-url`,
+      sort: d.created_at ?? "",
+    })),
+    ...(specialLicenses ?? []).filter((l: any) => l.document_path).map((l: any) => ({
+      key: `sl-${l.id}`,
+      label: `Special licence: ${l.license_name}`,
+      detail: l.document_uploaded_by === "self" ? "by the nurse/midwife" : l.document_uploaded_by === "admin" ? "by administrator" : "Uploaded file",
+      uploadedAt: when(l.document_uploaded_at),
+      status: l.status ?? null,
+      viewEndpoint: `/api/admin/special-licenses/${l.id}/view-url`,
+      sort: l.document_uploaded_at ?? "",
+    })),
+    ...(nameChangeHistory ?? []).filter((r: any) => r.document_path).map((r: any) => ({
+      key: `nc-${r.id}`,
+      label: `Name change request: ${r.requested_first_name} ${r.requested_last_name}`,
+      detail: `Reason: ${r.reason} · supporting document`,
+      uploadedAt: when(r.submitted_at),
+      status: r.status ?? null,
+      viewEndpoint: `/api/admin/name-change-requests/${r.id}/view-url`,
+      sort: r.submitted_at ?? "",
+    })),
+  ].sort((a, b) => (a.sort < b.sort ? 1 : -1));
 
   const { data: history } = await supabase
     .from("audit_log")
@@ -134,7 +170,7 @@ export default async function PersonDetailPage({ params: paramsPromise }: { para
           <Field label="Employment Sector" value={person.employment_sector} />
           <Field label="Service Category" value={person.service_category} />
           <Field label="Profile Status" value={person.profile_status} />
-          <Field label="Data Source" value={person.data_source} />
+          <Field label="Data Source" value={person.data_source === "Manually added by admin" ? person.data_source : "SNMC Masterdatabase"} />
         </dl>
       </div>
 
@@ -149,6 +185,8 @@ export default async function PersonDetailPage({ params: paramsPromise }: { para
         midwifeDoc={midwifeDoc}
         specialLicenses={specialLicenses ?? []}
       />
+
+      {canSeeNin && <DocumentsSection documents={documents} />}
 
       {renewalHistory && renewalHistory.length > 0 && (
         <div className="bg-white rounded-card border border-council-navy/10 p-6">
