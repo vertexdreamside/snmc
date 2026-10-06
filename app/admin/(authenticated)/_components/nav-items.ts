@@ -11,6 +11,7 @@ import {
   CalendarClock,
   RefreshCw,
   UserCog,
+  BookOpen,
 } from "lucide-react";
 import type { AdminPermission } from "@/lib/types/database";
 
@@ -69,5 +70,9 @@ export const NAV_GROUPS: {
       { href: "/admin/audit-log", label: "Audit Log", icon: ScrollText, permissions: ["users"] },
       { href: "/admin/users", label: "Admin Users", icon: ShieldCheck, permissions: ["users"] },
     ],
+  },
+  {
+    label: "Help",
+    items: [{ href: "/admin/help", label: "User Manual", icon: BookOpen }],
   },
 ];

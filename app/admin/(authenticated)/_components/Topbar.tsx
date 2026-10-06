@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Search, Bell, Menu } from "lucide-react";
+import { Search, Bell, Menu, HelpCircle } from "lucide-react";
 import { NAV_GROUPS } from "./nav-items";
 import { LogoutButton } from "@/lib/components/LogoutButton";
 import { useMobileSidebar } from "./MobileSidebarContext";
@@ -54,11 +54,14 @@ export function Topbar() {
             className="bg-transparent outline-none font-body text-sm w-full placeholder:text-council-ink/40"
           />
         </form>
+        <Link href="/admin/help" aria-label="Help and user manual" title="Help & user manual" className="text-council-ink/50 hover:text-council-navy">
+          <HelpCircle size={20} />
+        </Link>
         <Link href="/admin" aria-label="Notifications" className="relative text-council-ink/50 hover:text-council-navy">
           <Bell size={20} />
           {unreadCount > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 bg-status-closed text-white text-[10px] font-medium rounded-full w-4 h-4 flex items-center justify-center">
-              {unreadCount > 9 ? "9+" : unreadCount}
+            <span className="absolute -top-1.5 -right-1.5 bg-status-closed text-white text-[10px] font-medium rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center">
+              {unreadCount}
             </span>
           )}
         </Link>
