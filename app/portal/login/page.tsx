@@ -114,6 +114,17 @@ export default function PortalLoginPage() {
             {loading ? "Please wait…" : "Sign In"}
           </button>
 
+          {!isCouncillor && (
+          <a
+              href="/snmc-nurse-midwife-guide.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block text-center font-body text-xs text-council-cyan underline mt-4"
+            >
+              New here? Open the user guide
+            </a>
+          )}
+
           <a href="/" className="block text-center font-body text-xs text-council-ink/40 hover:text-council-cyan mt-4">
             ← Back to home
           </a>

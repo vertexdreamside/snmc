@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { HelpCircle } from "lucide-react";
 import Link from "next/link";
 import { requirePortalUser } from "@/lib/auth/guards";
 import { LogoutButton } from "@/lib/components/LogoutButton";
@@ -44,6 +45,17 @@ export default async function PortalLayout({ children }: { children: React.React
           </nav>
         </div>
         <span className="font-body text-sm text-white/70 flex items-center gap-4">
+          <a
+            href="/snmc-nurse-midwife-guide.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="User guide"
+            aria-label="Open the user guide"
+            className="flex items-center gap-1 text-white/70 hover:text-white"
+          >
+            <HelpCircle size={18} aria-hidden="true" />
+            <span className="hidden sm:inline text-sm">User Guide</span>
+          </a>
           {person.first_name} {person.last_name}
           <LogoutButton redirectTo="/portal/login" className="flex items-center gap-1.5 text-sm text-white/70 hover:text-white" />
         </span>
