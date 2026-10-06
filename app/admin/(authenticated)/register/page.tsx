@@ -6,13 +6,22 @@ import { searchPersonIds, NO_MATCH_ID } from "@/lib/search";
 
 const STATUS_OPTIONS = ["Practising", "Not Practising", "Retired", "Abroad", "Deceased", "Deleted", "Unknown"];
 const PROFILE_STATUS_OPTIONS = ["Approved", "Pending Review", "Rejected"];
+// "Nurses only" / "Midwives only" / "Both" — matches the register's own
+// registration numbers each person actually holds (nurse_reg_no /
+// midwife_reg_no). professional_category isn't used because it is still an
+// unconfirmed guess for many imported records, which made the filter miss people.
+const CATEGORY_OPTIONS = [
+  { value: "Nurse", label: "Nurses only" },
+  { value: "Midwife", label: "Midwives only" },
+  { value: "Both", label: "Nurse/Midwives (both)" },
+];
 const PAGE_SIZE = 100;
 const SORTABLE_COLUMNS = ["last_name", "first_name"] as const;
 
 export default async function AdminRegisterPage({
   searchParams: searchParamsPromise,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; profile_status?: string; page?: string; sort?: string; dir?: string }>;
+  searchParams: Promise<{ q?: string; category?: string; status?: string; profile_status?: string; page?: string; sort?: string; dir?: string }>;
 }) {
   const searchParams = await searchParamsPromise;
   await requireAdmin();
@@ -51,6 +60,17 @@ export default async function AdminRegisterPage({
     ]);
     query = query.in("id", ids.length ? ids : [NO_MATCH_ID]);
   }
+  if (searchParams.category && CATEGORY_OPTIONS.some((c) => c.value === searchParams.category)) {
+    const noNurse = "nurse_reg_no.is.null,nurse_reg_no.eq.";
+    const noMidwife = "midwife_reg_no.is.null,midwife_reg_no.eq.";
+    if (searchParams.category === "Nurse") {
+      query = query.not("nurse_reg_no", "is", null).neq("nurse_reg_no", "").or(noMidwife);
+    } else if (searchParams.category === "Midwife") {
+      query = query.not("midwife_reg_no", "is", null).neq("midwife_reg_no", "").or(noNurse);
+    } else {
+      query = query.not("nurse_reg_no", "is", null).neq("nurse_reg_no", "").not("midwife_reg_no", "is", null).neq("midwife_reg_no", "");
+    }
+  }
   if (searchParams.status) {
     query = query.eq("registration_status", searchParams.status);
   }
@@ -70,6 +90,7 @@ export default async function AdminRegisterPage({
   function pageHref(page: number) {
     const params = new URLSearchParams();
     if (searchParams.q) params.set("q", searchParams.q);
+    if (searchParams.category) params.set("category", searchParams.category);
     if (searchParams.status) params.set("status", searchParams.status);
     if (searchParams.profile_status) params.set("profile_status", searchParams.profile_status);
     if (searchParams.sort) params.set("sort", searchParams.sort);
@@ -81,6 +102,7 @@ export default async function AdminRegisterPage({
   function sortHref(column: (typeof SORTABLE_COLUMNS)[number]) {
     const params = new URLSearchParams();
     if (searchParams.q) params.set("q", searchParams.q);
+    if (searchParams.category) params.set("category", searchParams.category);
     if (searchParams.status) params.set("status", searchParams.status);
     if (searchParams.profile_status) params.set("profile_status", searchParams.profile_status);
     params.set("sort", column);
@@ -108,6 +130,18 @@ export default async function AdminRegisterPage({
           placeholder="Search name or registration number…"
           className="flex-1 min-w-[200px] border border-council-navy/20 rounded-card px-3 py-2 font-body text-sm focus:outline-none focus:ring-2 focus:ring-council-cyan"
         />
+        <select
+          name="category"
+          defaultValue={searchParams.category ?? ""}
+          className="border border-council-navy/20 rounded-card px-3 py-2 font-body text-sm"
+        >
+          <option value="">Nurses &amp; Midwives</option>
+          {CATEGORY_OPTIONS.map((c) => (
+            <option key={c.value} value={c.value}>
+              {c.label}
+            </option>
+          ))}
+        </select>
         <select
           name="status"
           defaultValue={searchParams.status ?? ""}
