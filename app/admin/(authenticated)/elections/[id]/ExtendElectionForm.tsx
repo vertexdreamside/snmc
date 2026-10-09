@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Clock } from "lucide-react";
 import { formatSeychellesTime } from "@/lib/reports";
+import { maheLocalToIso } from "@/lib/elections/mahe-time";
 
 export function ExtendElectionForm({ electionId, field, label, currentClosing }: { electionId: string; field: "round1_close_at" | "round2_close_at"; label: string; currentClosing: string | null }) {
   const router = useRouter();
@@ -20,7 +21,7 @@ export function ExtendElectionForm({ electionId, field, label, currentClosing }:
     const res = await fetch(`/api/admin/elections/${electionId}/extend`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ field, newClosingTime: new Date(newClosing).toISOString(), reason }),
+      body: JSON.stringify({ field, newClosingTime: maheLocalToIso(newClosing), reason }),
     });
     const data = await res.json();
     setBusy(false);

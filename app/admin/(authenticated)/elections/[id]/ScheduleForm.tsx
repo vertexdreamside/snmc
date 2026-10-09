@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarClock } from "lucide-react";
+import { isoToMaheInput } from "@/lib/elections/mahe-time";
 import { computeRoundScheduleState, type RoundScheduleState } from "@/lib/elections/schedule";
 
 function formatCountdown(target: string): string {
@@ -16,10 +17,7 @@ function formatCountdown(target: string): string {
 }
 
 function toInputValue(iso: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return isoToMaheInput(iso);
 }
 
 // Section 7: explicit, manually-configured start/end date-time for each

@@ -9,6 +9,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/guards";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { maheLocalToIso } from "@/lib/elections/mahe-time";
 
 const schema = z.object({
   round1_open_at: z.string().nullable().optional(),
@@ -33,7 +34,7 @@ export async function POST(request: Request, { params: paramsPromise }: { params
 
   const update: Record<string, string | null> = {};
   for (const [key, value] of Object.entries(parsed.data)) {
-    if (value !== undefined) update[key] = value ? new Date(value).toISOString() : null;
+    if (value !== undefined) update[key] = value ? maheLocalToIso(value) : null;
   }
 
   const { error } = await supabase.from("elections").update(update).eq("id", params.id);
