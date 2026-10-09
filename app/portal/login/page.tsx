@@ -28,6 +28,7 @@ export default function PortalLoginPage() {
   const [nin, setNin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [registrationType, setRegistrationType] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -46,7 +47,7 @@ export default function PortalLoginPage() {
     const res = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ registrationNumber, nin: nin || undefined, next }),
+      body: JSON.stringify({ registrationNumber, nin: nin || undefined, registrationType: registrationType || undefined, next }),
     });
     const data = await res.json();
     setLoading(false);
@@ -95,6 +96,18 @@ export default function PortalLoginPage() {
           ) : (
             <>
               <Field label="Registration Number" value={registrationNumber} onChange={setRegistrationNumber} required />
+              <label className="block mb-4">
+                <span className="font-body text-sm text-council-ink/70 block mb-1">This number is my… (only if asked)</span>
+                <select
+                  value={registrationType}
+                  onChange={(e) => setRegistrationType(e.target.value)}
+                  className="w-full border border-council-navy/20 rounded-card px-3 py-2 font-body focus:outline-none focus:ring-2 focus:ring-council-cyan"
+                >
+                  <option value="">Not sure / not needed</option>
+                  <option value="Nurse">Nurse registration number</option>
+                  <option value="Midwife">Midwife registration number</option>
+                </select>
+              </label>
               <Field
                 label="National ID Number (NIN) — if you have one on file"
                 value={nin}
