@@ -8,6 +8,7 @@ import { CandidateRow } from "./CandidateRow";
 import { NominationRankingPanel } from "./NominationRankingPanel";
 import { VoterParticipation } from "./VoterParticipation";
 import { ElectionMonitor } from "./ElectionMonitor";
+import { NominationMonitor } from "./NominationMonitor";
 import { ExtendElectionForm } from "./ExtendElectionForm";
 import { ElectionSummary } from "./ElectionSummary";
 import { ApprovalPanel } from "./ApprovalPanel";
@@ -102,7 +103,10 @@ export default async function ElectionDetailPage({ params: paramsPromise }: { pa
       </div>
 
       {(election.status === "Nomination Closed" || election.status === "Nomination Open") && (
-        <NominationRankingPanel electionId={election.id} />
+        <>
+          <NominationMonitor election={election} />
+          <NominationRankingPanel electionId={election.id} />
+        </>
       )}
 
       {/* Completed was previously excluded here, which meant the final

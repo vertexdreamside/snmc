@@ -139,7 +139,7 @@ export function ElectionControls({
         <button
           onClick={toggleLiveResults}
           disabled={busy}
-          title="Shows/hides per-candidate vote counts on the Live Election Monitor below, while voting is still open. Voters never see this — it only affects what admins see here."
+          title="Shows/hides per-candidate counts while a round is still open: nomination counts in Round 1 (Live Nomination Monitor) and vote counts in Round 2 (Live Election Monitor). Voters never see this — it only affects what admins see here."
           className={`border font-body text-sm font-medium rounded-card px-4 py-2 disabled:opacity-60 ${
             liveResultsVisible ? "border-council-cyan bg-council-cyan/10 text-council-navy" : "border-council-navy/20 text-council-ink/70"
           }`}
