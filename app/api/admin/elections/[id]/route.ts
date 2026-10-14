@@ -42,13 +42,21 @@ export async function PATCH(request: Request, { params: paramsPromise }: { param
     if (parsed.data.status === "Nomination Open" || parsed.data.status === "Election Open") {
       const { data: election } = await supabase
         .from("elections")
-        .select("nomination_duration_days, voting_duration_days")
+        .select("nomination_duration_days, voting_duration_days, round1_close_at, round2_close_at")
         .eq("id", params.id)
         .single();
       if (election) {
         const days = parsed.data.status === "Nomination Open" ? election.nomination_duration_days : election.voting_duration_days;
         const closeField = parsed.data.status === "Nomination Open" ? "round1_close_at" : "round2_close_at";
-        update[closeField] = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+        // A closing time the admin already scheduled (and that is still in
+        // the future) wins. The duration in days is only a fallback for an
+        // election with no schedule — otherwise advancing the status would
+        // silently overwrite the Council's agreed dates.
+        const scheduled = election[closeField as "round1_close_at" | "round2_close_at"];
+        const hasFutureSchedule = !!scheduled && new Date(scheduled).getTime() > Date.now();
+        if (!hasFutureSchedule) {
+          update[closeField] = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+        }
       }
     }
 
