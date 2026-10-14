@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download, Filter } from "lucide-react";
+import { Download } from "lucide-react";
 
 interface Voter {
   id: string;
@@ -23,14 +23,15 @@ interface Voter {
 // (phone calls, in-person follow-up), with each person's mobile number
 // included specifically for that purpose.
 export function VoterParticipationTable({ category, voters, votedIds }: { category: string; voters: Voter[]; votedIds: string[] }) {
-  const [showOnlyNotVoted, setShowOnlyNotVoted] = useState(false);
+  const [filter, setFilter] = useState<"all" | "voted" | "notVoted">("all");
   const votedSet = new Set(votedIds);
 
   const votedCount = voters.filter((v) => votedSet.has(v.id)).length;
   const turnout = voters.length > 0 ? ((votedCount / voters.length) * 100).toFixed(1) : "0.0";
   const notVotedCount = voters.length - votedCount;
 
-  const visibleVoters = showOnlyNotVoted ? voters.filter((v) => !votedSet.has(v.id)) : voters;
+  const visibleVoters =
+    filter === "voted" ? voters.filter((v) => votedSet.has(v.id)) : filter === "notVoted" ? voters.filter((v) => !votedSet.has(v.id)) : voters;
 
   function exportNonVoters() {
     const nonVoters = voters.filter((v) => !votedSet.has(v.id));
@@ -55,12 +56,23 @@ export function VoterParticipationTable({ category, voters, votedIds }: { catego
           <p className="font-body text-xs text-council-ink/60">
             {votedCount} of {voters.length} voted ({turnout}%) · {notVotedCount} not voted
           </p>
-          <button
-            onClick={() => setShowOnlyNotVoted(!showOnlyNotVoted)}
-            className={`flex items-center gap-1 text-xs rounded-card px-2 py-1 ${showOnlyNotVoted ? "bg-council-navy text-white" : "border border-council-navy/20 text-council-ink/60"}`}
-          >
-            <Filter size={11} aria-hidden="true" /> Not Voted Only
-          </button>
+          <div role="group" aria-label={`Filter ${category} voters`} className="flex items-center rounded-card border border-council-navy/20 overflow-hidden text-xs">
+            {([
+              ["all", `All (${voters.length})`],
+              ["voted", `Voted (${votedCount})`],
+              ["notVoted", `Not Voted (${notVotedCount})`],
+            ] as const).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                aria-pressed={filter === key}
+                onClick={() => setFilter(key)}
+                className={`px-2 py-1 ${filter === key ? "bg-council-navy text-white" : "text-council-ink/60 hover:bg-council-cream"}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <button onClick={exportNonVoters} className="flex items-center gap-1 text-xs text-council-cyan underline">
             <Download size={11} aria-hidden="true" /> Export Non-Voters
           </button>
@@ -83,7 +95,7 @@ export function VoterParticipationTable({ category, voters, votedIds }: { catego
             </tr>
           ))}
           {visibleVoters.length === 0 && (
-            <tr><td colSpan={5} className="px-4 py-6 text-center text-council-ink/40">Everyone has voted.</td></tr>
+            <tr><td colSpan={5} className="px-4 py-6 text-center text-council-ink/40">{filter === "voted" ? "Nobody has voted yet." : filter === "notVoted" ? "Everyone has voted." : "No eligible voters."}</td></tr>
           )}
         </tbody>
       </table>
