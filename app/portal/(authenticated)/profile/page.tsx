@@ -5,6 +5,7 @@ import { categoryDisplay } from "@/lib/licenses";
 import { AlertTriangle } from "lucide-react";
 import { RenewalRequestForm } from "./RenewalRequestForm";
 import { NameChangeRequestForm } from "./NameChangeRequestForm";
+import { ElectedBanner } from "../ElectedBanner";
 import { EmailAddressForm } from "./EmailAddressForm";
 
 const REMINDER_WINDOW_DAYS = 90;
@@ -120,6 +121,7 @@ export default async function ProfilePage() {
 
   return (
     <div className="max-w-xl mx-auto space-y-6">
+      <ElectedBanner person={person} />
       <div>
         <h1 className="font-display text-2xl text-council-navy">Your Details</h1>
         <p className="font-body text-sm text-council-ink/60 mt-1">

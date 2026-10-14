@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ClipboardCheck, Vote, ArrowRight, Info } from "lucide-react";
 import Link from "next/link";
 import { canSeeElection } from "@/lib/elections/test-election";
+import { ElectedBanner } from "./ElectedBanner";
 import { NomineeResponseBanner } from "./NomineeResponseBanner";
 
 export default async function PortalHome() {
@@ -31,6 +32,7 @@ export default async function PortalHome() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
+      <ElectedBanner person={person} />
       <NomineeResponseBanner nominations={pendingNominations} />
       <section className="bg-white rounded-card border border-council-navy/10 p-6">
         <div className="flex items-center justify-between mb-3">
@@ -94,7 +96,7 @@ function ElectionRules({ kind }: { kind: "nominate" | "vote" }) {
       <Info size={16} className="text-council-cyan shrink-0 mt-0.5" aria-hidden="true" />
       {kind === "nominate" ? (
         <p className="font-body text-xs text-council-ink/70">
-          A Registered Licensed Nurse Midwife may nominate a Nurse and a Midwife. A Registered Licensed Nurse
+          A Registered Licensed Nurse and Midwife may nominate a Nurse and a Midwife. A Registered Licensed Nurse
           (only) may nominate a Nurse only. A Licensed Midwife who is not also a Registered Nurse may only
           nominate a Midwife.
         </p>
