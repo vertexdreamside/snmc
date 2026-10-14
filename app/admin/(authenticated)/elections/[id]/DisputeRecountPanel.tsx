@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Gavel, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Gavel, AlertTriangle, CheckCircle2, Paperclip } from "lucide-react";
 import { formatSeychellesTime } from "@/lib/reports";
 
 interface Dispute {
@@ -37,18 +37,36 @@ export function DisputeRecountPanel({
   const [category, setCategory] = useState<"Nurse" | "Midwife">("Nurse");
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+  const [filingFile, setFilingFile] = useState<File | null>(null);
+  const [filingError, setFilingError] = useState<string | null>(null);
 
   async function fileDispute(e: React.FormEvent) {
     e.preventDefault();
     setBusy("filing");
-    await fetch(`/api/admin/elections/${electionId}/disputes`, {
+    setFilingError(null);
+    const res = await fetch(`/api/admin/elections/${electionId}/disputes`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ category, reason }),
     });
+    const data = await res.json().catch(() => null);
+    let uploadProblem: string | null = null;
+    if (data?.ok && data.id && filingFile) {
+      const fd = new FormData();
+      fd.append("file", filingFile);
+      const up = await fetch(`/api/admin/disputes/${data.id}/documents`, { method: "POST", body: fd });
+      const upData = await up.json().catch(() => null);
+      if (!upData?.ok) uploadProblem = upData?.reason ?? "The file could not be attached.";
+    }
     setBusy(null);
+    if (!data?.ok) {
+      setFilingError(data?.reason ?? "Could not file the dispute.");
+      return;
+    }
     setReason("");
+    setFilingFile(null);
     setShowForm(false);
+    if (uploadProblem) alert(`Dispute filed, but the file was not attached: ${uploadProblem} You can attach it from the dispute below.`);
     router.refresh();
   }
 
@@ -103,6 +121,12 @@ export function DisputeRecountPanel({
             rows={2}
             className="w-full border border-council-navy/20 rounded-card px-2 py-1.5 text-sm"
           />
+          <label className="flex items-center gap-2 font-body text-xs text-council-ink/70">
+            <Paperclip size={12} aria-hidden="true" />
+            <span>Attach a file (optional — PDF, JPEG, PNG or WEBP, 10MB max)</span>
+            <input type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={(e) => setFilingFile(e.target.files?.[0] ?? null)} className="text-xs" />
+          </label>
+          {filingError && <p className="font-body text-xs text-status-closed">{filingError}</p>}
           <button type="submit" disabled={busy === "filing"} className="text-xs bg-council-navy text-white rounded-card px-3 py-1.5 disabled:opacity-60">
             {busy === "filing" ? "Filing…" : "File Dispute"}
           </button>
@@ -120,6 +144,7 @@ export function DisputeRecountPanel({
             </div>
             <p className="font-body text-xs text-council-ink/60 italic">"{d.reason}"</p>
             <p className="font-body text-xs text-council-ink/50">Original tally: {tallyLine(d.original_tally)}</p>
+            <DisputeFiles disputeId={d.id} />
 
             {d.recount_tally ? (
               <div className={`flex items-start gap-2 rounded-card p-2 ${d.recount_matches ? "bg-status-active/10" : "bg-status-closed/10"}`}>
@@ -173,6 +198,63 @@ function ResolveForm({ disputeId, onResolve, busy }: { disputeId: string; onReso
       <button onClick={() => onResolve(disputeId, "Upheld", notes)} disabled={busy || !notes} className="text-xs bg-status-closed text-white rounded-card px-3 py-1.5 disabled:opacity-60">
         Uphold Dispute
       </button>
+    </div>
+  );
+}
+
+function DisputeFiles({ disputeId }: { disputeId: string }) {
+  const [files, setFiles] = useState<{ name: string; url: string | null }[] | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function load() {
+    const res = await fetch(`/api/admin/disputes/${disputeId}/documents`);
+    const data = await res.json().catch(() => null);
+    setFiles(data?.ok ? data.files : []);
+  }
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [disputeId]);
+
+  async function upload(file: File | null) {
+    if (!file) return;
+    setUploading(true);
+    setError(null);
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch(`/api/admin/disputes/${disputeId}/documents`, { method: "POST", body: fd });
+    const data = await res.json().catch(() => null);
+    setUploading(false);
+    if (!data?.ok) setError(data?.reason ?? "Could not upload the file.");
+    else await load();
+  }
+
+  return (
+    <div className="space-y-1">
+      {files && files.length > 0 && (
+        <ul className="font-body text-xs space-y-0.5">
+          {files.map((f, i) => (
+            <li key={i} className="flex items-center gap-1.5">
+              <Paperclip size={11} className="text-council-ink/40" aria-hidden="true" />
+              {f.url ? <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-council-cyan underline">{f.name}</a> : f.name}
+            </li>
+          ))}
+        </ul>
+      )}
+      <label className="inline-flex items-center gap-1.5 font-body text-xs text-council-cyan cursor-pointer">
+        <Paperclip size={11} aria-hidden="true" />
+        <span className="underline">{uploading ? "Uploading…" : "Attach a file"}</span>
+        <input
+          type="file"
+          accept="application/pdf,image/jpeg,image/png,image/webp"
+          disabled={uploading}
+          onChange={(e) => { upload(e.target.files?.[0] ?? null); e.target.value = ""; }}
+          className="hidden"
+        />
+      </label>
+      {error && <p className="font-body text-xs text-status-closed">{error}</p>}
     </div>
   );
 }

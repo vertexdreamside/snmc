@@ -1,7 +1,7 @@
 import { EmptyState } from "@/lib/components/EmptyState";
 import { requireAdmin } from "@/lib/auth/guards";
 import { createClient } from "@/lib/supabase/server";
-import { isTallyVisible } from "@/lib/elections/tally";
+import { isTallyVisible, computeElectionStageLabel } from "@/lib/elections/tally";
 import { isCandidateListLocked } from "@/lib/elections/computeTally";
 import { ElectionControls } from "./ElectionControls";
 import { CandidateRow } from "./CandidateRow";
@@ -9,6 +9,8 @@ import { NominationRankingPanel } from "./NominationRankingPanel";
 import { VoterParticipation } from "./VoterParticipation";
 import { ElectionMonitor } from "./ElectionMonitor";
 import { NominationMonitor } from "./NominationMonitor";
+import { ExportSummaryButton, type SummaryExportData } from "./ExportSummaryButton";
+import { formatSeychellesTime } from "@/lib/reports";
 import { ExtendElectionForm } from "./ExtendElectionForm";
 import { ElectionSummary } from "./ElectionSummary";
 import { ApprovalPanel } from "./ApprovalPanel";
@@ -68,6 +70,61 @@ export default async function ElectionDetailPage({ params: paramsPromise }: { pa
   // (Section 9 of the confirmed rules) — includes the admin-configurable
   // live_results_visible toggle, not just "closed or completed."
   const tallyVisible = isTallyVisible(election);
+
+  // Election Summary export (Closed or Completed): same figures the page
+  // already shows — per-candidate vote counts, never who voted for whom.
+  let summaryExport: SummaryExportData | null = null;
+  if (election.status === "Election Closed" || election.status === "Completed") {
+    const cats: ("Nurse" | "Midwife")[] = ["Nurse", "Midwife"];
+    const categories = await Promise.all(
+      cats.map(async (category) => {
+        const { count: eligible } = await supabase
+          .from("people").select("*", { count: "exact", head: true })
+          .eq("is_deceased", false).eq("category_confirmed", true)
+          .or(`professional_category.eq.Both,professional_category.eq.${category}`);
+        const { count: voted } = await supabase
+          .from("vote_participation").select("*", { count: "exact", head: true })
+          .eq("election_id", params.id).eq("round", 2).eq("category", category);
+        const list = (category === "Nurse" ? nurseCandidates : midwifeCandidates)
+          .filter((c: any) => ["Accepted", "Elected", "Not Elected"].includes(c.status))
+          .map((c: any) => ({ name: candidateNames.get(c.id) ?? "", nominations: c.nomination_count ?? 1, votes: voteCounts.get(c.id) ?? 0, status: c.status }))
+          .sort((a, b) => b.votes - a.votes);
+        const total = list.reduce((sum, c) => sum + c.votes, 0);
+        const e = eligible ?? 0;
+        const v = voted ?? 0;
+        return {
+          category,
+          eligible: e,
+          voted: v,
+          turnout: e > 0 ? `${((v / e) * 100).toFixed(1)}%` : "0.0%",
+          candidates: list.map((c) => ({ ...c, share: total > 0 ? `${Math.round((c.votes / total) * 100)}%` : "0%" })),
+        };
+      })
+    );
+    summaryExport = {
+      election: {
+        term: election.term_label,
+        stage: computeElectionStageLabel(election),
+        approval: election.approval_status ?? "Not recorded",
+        resultsPublished: !!election.results_published,
+      },
+      schedule: [
+        { label: "Round 1 opens", value: election.round1_open_at ? formatSeychellesTime(election.round1_open_at) : "Not set" },
+        { label: "Round 1 closes", value: election.round1_close_at ? formatSeychellesTime(election.round1_close_at) : "Not set" },
+        { label: "Round 2 opens", value: election.round2_open_at ? formatSeychellesTime(election.round2_open_at) : "Not set" },
+        { label: "Round 2 closes", value: election.round2_close_at ? formatSeychellesTime(election.round2_close_at) : "Not set" },
+      ],
+      categories,
+      disputes: (disputes ?? []).map((d: any) => ({
+        category: d.category,
+        filed: d.filed_at ? formatSeychellesTime(d.filed_at) : "",
+        status: d.status,
+        reason: d.reason,
+        resolution: d.resolution ?? "",
+        notes: d.resolution_notes ?? "",
+      })),
+    };
+  }
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -131,6 +188,12 @@ export default async function ElectionDetailPage({ params: paramsPromise }: { pa
             approvalDocumentPath={election.approval_document_path}
           />
         </>
+      )}
+
+      {summaryExport && (
+        <div className="flex justify-end">
+          <ExportSummaryButton data={summaryExport} />
+        </div>
       )}
 
       {election.status === "Completed" && (
