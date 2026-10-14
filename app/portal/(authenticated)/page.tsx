@@ -2,13 +2,14 @@ import { requirePortalUser } from "@/lib/auth/guards";
 import { createClient } from "@/lib/supabase/server";
 import { ClipboardCheck, Vote, ArrowRight, Info } from "lucide-react";
 import Link from "next/link";
+import { canSeeElection } from "@/lib/elections/test-election";
 import { NomineeResponseBanner } from "./NomineeResponseBanner";
 
 export default async function PortalHome() {
   const person = await requirePortalUser();
   const supabase = await createClient();
 
-  const [{ data: openElections }, { data: nominationElections }, { data: pendingCandidacies }] = await Promise.all([
+  const [{ data: openAll }, { data: nominationAll }, { data: pendingCandidacies }] = await Promise.all([
     supabase.from("elections").select("id, term_label, status").eq("status", "Election Open"),
     supabase.from("elections").select("id, term_label, status").eq("status", "Nomination Open"),
     supabase
@@ -18,6 +19,8 @@ export default async function PortalHome() {
       .eq("status", "Pending"),
   ]);
 
+  const openElections = (openAll ?? []).filter((e) => canSeeElection(e.term_label, person));
+  const nominationElections = (nominationAll ?? []).filter((e) => canSeeElection(e.term_label, person));
   const hasNominations = nominationElections && nominationElections.length > 0;
   const hasVoting = openElections && openElections.length > 0;
   const pendingNominations = (pendingCandidacies ?? []).map((c: any) => ({

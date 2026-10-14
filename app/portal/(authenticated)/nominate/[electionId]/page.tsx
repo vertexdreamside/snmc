@@ -1,3 +1,4 @@
+import { canSeeElection } from "@/lib/elections/test-election";
 import { requirePortalUser } from "@/lib/auth/guards";
 import { createClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/lib/components/EmptyState";
@@ -18,7 +19,7 @@ export default async function NominatePage({ params: paramsPromise }: { params: 
     .eq("id", params.electionId)
     .single();
 
-  if (!election) {
+  if (!election || !canSeeElection(election.term_label, person)) {
     return <EmptyState message="Election not found." backHref="/portal" backLabel="← Back to portal" />;
   }
   // Round 1 = nomination collection, per the historical process. Round 2

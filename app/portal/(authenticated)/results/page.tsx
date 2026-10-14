@@ -1,3 +1,4 @@
+import { canSeeElection } from "@/lib/elections/test-election";
 import { requirePortalUser } from "@/lib/auth/guards";
 import { createClient } from "@/lib/supabase/server";
 
@@ -14,7 +15,7 @@ import { createClient } from "@/lib/supabase/server";
 // it has nothing to do with what a voter is allowed to see. If you're
 // extending this page, do not thread live_results_visible into it.
 export default async function PortalResultsPage() {
-  await requirePortalUser();
+  const person = await requirePortalUser();
   const supabase = await createClient();
 
   const { data: publishedElections } = await supabase
@@ -24,7 +25,7 @@ export default async function PortalResultsPage() {
     .order("term_label", { ascending: false });
 
   const resultsByElection = await Promise.all(
-    (publishedElections ?? []).map(async (e) => {
+    (publishedElections ?? []).filter((e) => canSeeElection(e.term_label, person)).map(async (e) => {
       const { data: elected } = await supabase
         .from("candidates")
         .select("category, people:person_id(first_name, last_name)")
