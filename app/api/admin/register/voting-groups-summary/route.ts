@@ -18,6 +18,8 @@ export async function GET() {
 
   const summary: Record<string, Record<string, number>> = {};
   let unspecifiedTotal = 0;
+  const totals: Record<string, number> = {};
+  const noSector: Record<string, number> = {};
 
   for (const category of categories) {
     summary[category] = {};
@@ -28,9 +30,23 @@ export async function GET() {
         .eq("is_deceased", false)
         .eq("category_confirmed", true)
         .eq("service_category", group)
-        .or(`professional_category.eq.Both,professional_category.eq.${category}`);
+        .in("professional_category", ["Both", category]).or("registration_status.is.null,registration_status.neq.Revoked");
       summary[category][group] = count ?? 0;
     }
+    // Everyone eligible in this category, and the ones with no Hospital /
+    // Community / Private sector on file (blank, "Unspecified" or any other
+    // value). They ARE eligible and ARE included in the lists — they just
+    // haven't had a workplace sector recorded yet, so they can vote for and
+    // nominate across all groups until it is.
+    const { count: total } = await supabase
+      .from("people")
+      .select("*", { count: "exact", head: true })
+      .eq("is_deceased", false)
+      .eq("category_confirmed", true)
+      .in("professional_category", ["Both", category]).or("registration_status.is.null,registration_status.neq.Revoked");
+    const inGroups = groups.reduce((sum, g) => sum + (summary[category][g] ?? 0), 0);
+    totals[category] = total ?? 0;
+    noSector[category] = Math.max(0, (total ?? 0) - inGroups);
   }
 
   const { count: unspecified } = await supabase
@@ -38,8 +54,8 @@ export async function GET() {
     .select("*", { count: "exact", head: true })
     .eq("is_deceased", false)
     .eq("category_confirmed", true)
-    .or("service_category.is.null,service_category.eq.Unspecified");
+    .or("service_category.is.null,service_category.eq.Unspecified").or("registration_status.is.null,registration_status.neq.Revoked");
   unspecifiedTotal = unspecified ?? 0;
 
-  return NextResponse.json({ ok: true, summary, unspecifiedTotal });
+  return NextResponse.json({ ok: true, summary, unspecifiedTotal, totals, noSector });
 }

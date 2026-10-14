@@ -19,7 +19,7 @@ export function CreateElectionForm() {
   const [votingDays, setVotingDays] = useState(7);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [summary, setSummary] = useState<{ summary: Record<string, Record<string, number>>; unspecifiedTotal: number } | null>(null);
+  const [summary, setSummary] = useState<{ summary: Record<string, Record<string, number>>; unspecifiedTotal: number; totals?: Record<string, number>; noSector?: Record<string, number> } | null>(null);
 
   useEffect(() => {
     if (step === 2 && !summary) {
@@ -130,12 +130,19 @@ export function CreateElectionForm() {
                       <span>{group}</span> <span>{summary.summary[category]?.[group] ?? 0}</span>
                     </p>
                   ))}
+                  <p className="font-body text-xs text-council-ink/60 flex justify-between">
+                    <span>No sector on file</span> <span>{summary.noSector?.[category] ?? 0}</span>
+                  </p>
+                  <p className="font-body text-xs font-medium text-council-navy flex justify-between border-t border-council-navy/10 mt-1 pt-1">
+                    <span>Total eligible</span> <span>{summary.totals?.[category] ?? 0}</span>
+                  </p>
                 </div>
               ))}
               {summary.unspecifiedTotal > 0 && (
                 <p className="col-span-2 font-body text-xs text-council-ink/40 italic">
-                  {summary.unspecifiedTotal} eligible people have no workplace sector on file — treated as eligible
-                  across all groups until that's filled in.
+                  {summary.unspecifiedTotal} eligible people have no workplace sector on file. They are included in the
+                  Nurse and Midwife lists above (under "No sector on file") and can vote for and nominate across all
+                  groups until their workplace sector is filled in.
                 </p>
               )}
             </div>
