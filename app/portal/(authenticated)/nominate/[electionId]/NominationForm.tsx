@@ -38,7 +38,7 @@ function CategorySection({ electionId, category, alreadySubmitted }: { electionI
   const [results, setResults] = useState<CandidateResult[]>([]);
   const [selected, setSelected] = useState<CandidateResult | null>(null);
   const [currentPlacement, setCurrentPlacement] = useState("");
-  const [serviceCategory, setServiceCategory] = useState<"Hospital" | "Community" | "Private">("Hospital");
+  const [serviceCategory, setServiceCategory] = useState<"Hospital" | "Community" | "Private" | "Unspecified">("Hospital");
   const [status, setStatus] = useState<"idle" | "submitting" | "done" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
 
@@ -148,16 +148,17 @@ function CategorySection({ electionId, category, alreadySubmitted }: { electionI
           <span className="font-body text-sm text-council-ink/70 block mb-1">Sector this candidate is based in</span>
           <select
             value={serviceCategory}
-            onChange={(e) => setServiceCategory(e.target.value as "Hospital" | "Community" | "Private")}
+            onChange={(e) => setServiceCategory(e.target.value as "Hospital" | "Community" | "Private" | "Unspecified")}
             className="w-full border border-council-navy/20 rounded-card px-3 py-2 font-body focus:outline-none focus:ring-2 focus:ring-council-cyan"
           >
             <option value="Hospital">Hospital</option>
             <option value="Community">Community</option>
             <option value="Private">Private</option>
+            <option value="Unspecified">Not specified (no sector on file)</option>
           </select>
           <span className="font-body text-xs text-council-ink/40 mt-1 block">
             Determines who's eligible to vote for this candidate — Hospital, Community, and Private are separate
-            voting pools.
+            voting pools. Choose "Not specified" if you don't know the sector: the candidate then appears to every voter.
           </span>
         </label>
 

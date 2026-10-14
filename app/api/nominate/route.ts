@@ -24,7 +24,10 @@ const nominateSchema = z.object({
   category: z.enum(["Nurse", "Midwife"]),
   candidatePersonId: z.string().uuid(),
   currentPlacement: z.string().min(1, "Current placement is required"),
-  serviceCategory: z.enum(["Hospital", "Community", "Private"]),
+  // "Unspecified" = the candidate has no workplace sector on file. Stored as
+  // NULL (no database change needed), which the voting rules already treat
+  // as visible to every voter.
+  serviceCategory: z.enum(["Hospital", "Community", "Private", "Unspecified"]),
 });
 
 export async function POST(request: Request) {
@@ -41,11 +44,12 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ ok: false, reason: "Invalid input." }, { status: 400 });
   }
-  const { electionId, category, candidatePersonId, currentPlacement, serviceCategory } = parsed.data;
+  const { electionId, category, candidatePersonId, currentPlacement, serviceCategory: submittedSector } = parsed.data;
+  const serviceCategory = submittedSector === "Unspecified" ? null : submittedSector;
 
   const { data: nominator } = await supabase
     .from("people")
-    .select("id, professional_category, is_deceased, category_confirmed")
+    .select("id, professional_category, is_deceased, category_confirmed, registration_status")
     .eq("auth_user_id", user.id)
     .single();
 
